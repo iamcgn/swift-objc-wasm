@@ -15,10 +15,9 @@ COMMON_ARGS=(
   --build-swift-dynamic-stdlib=0 --build-swift-dynamic-sdk-overlay=0
   --build-swift-static-stdlib=0 --build-swift-static-sdk-overlay=0
   --llvm-targets-to-build="AArch64;X86;WebAssembly"
-  # Install the host tools locally so the wasm stdlib build finds one toolchain dir.
-  --install-prefix=/usr --install-destdir="$TOOLCHAIN_DESTDIR" --install-llvm --install-swift
-  --swift-install-components="compiler;clang-resource-dir-symlink;toolchain-tools;license;autolink-driver;swift-remote-mirror;swift-remote-mirror-headers"
-  --llvm-install-components="llvm-ar;llvm-nm;llvm-ranlib;llvm-objdump;clang;clang-resource-headers;lld"
+  # The host tools are staged into $TOOLCHAIN_DESTDIR/usr by stage-toolchain.sh (the
+  # install targets would also build the macOS clang overlays).
+  --install-prefix=/usr --install-destdir="$TOOLCHAIN_DESTDIR"
   --extra-cmake-options="-DLLVM_PARALLEL_LINK_JOBS=1 -DSWIFT_PARALLEL_LINK_JOBS=1 -DCMAKE_OSX_SYSROOT:PATH=$MACOS_SDK"
   --jobs "$JOBS"
 )
