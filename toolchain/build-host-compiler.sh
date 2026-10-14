@@ -3,8 +3,7 @@
 # link jobs capped for a 16 GB machine. Reuses build/objc-wasm across runs.
 set -euo pipefail
 SWIFT_SOURCE=${SWIFT_SOURCE:-$HOME/Development/swift-source}
-export DEVELOPER_DIR=${DEVELOPER_DIR:-/Library/Developer/CommandLineTools}
-export SDKROOT=${SDKROOT:-/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk}
+export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}
 JOBS=${JOBS:-6}
 cd "$SWIFT_SOURCE"
 exec ./swift/utils/build-script --release --assertions --build-subdir objc-wasm \
