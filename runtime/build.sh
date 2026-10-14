@@ -44,3 +44,10 @@ fi
 rm -f "$OUT/libobjc.a"
 "$AR" rcs "$OUT/libobjc.a" "${objs[@]}"
 echo "built $OUT/libobjc.a (${#objs[@]} objects)"
+
+# Install layout consumed by the stdlib build (SWIFT_OBJC_WASM_RUNTIME) and the SDK assembly.
+INSTALL="$OUT/install"
+rm -rf "$INSTALL" && mkdir -p "$INSTALL/lib" "$INSTALL/include"
+cp "$OUT/libobjc.a" "$INSTALL/lib/"
+cp -R "$HERE/include/objc" "$HERE/include/Block" "$HERE/include/_stdlib_shims" "$INSTALL/include/"
+echo "installed to $INSTALL"
