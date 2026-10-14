@@ -92,7 +92,7 @@ index 85df58f9797..af44210962f 100644
        FunctionPointer::forDirect(FunctionPointer::Kind::Function, messenger,
                                   /*secondaryValue*/ nullptr, sig,
 diff --git a/lib/IRGen/IRGenSIL.cpp b/lib/IRGen/IRGenSIL.cpp
-index 11fe6bbeda9..3441246b3ac 100644
+index 11fe6bbeda9..0b5a60aaee5 100644
 --- a/lib/IRGen/IRGenSIL.cpp
 +++ b/lib/IRGen/IRGenSIL.cpp
 @@ -5411,7 +5411,6 @@ void IRGenSILFunction::visitDynamicMethodBranchInst(DynamicMethodBranchInst *i){
@@ -103,11 +103,12 @@ index 11fe6bbeda9..3441246b3ac 100644
    llvm::Type *argTys[] = {
      IGM.ObjCPtrTy,
      IGM.Int8PtrTy,
-@@ -5419,7 +5418,15 @@ void IRGenSILFunction::visitDynamicMethodBranchInst(DynamicMethodBranchInst *i){
+@@ -5419,8 +5418,16 @@ void IRGenSILFunction::visitDynamicMethodBranchInst(DynamicMethodBranchInst *i){
    };
    auto respondsToSelectorTy = llvm::FunctionType::get(IGM.Int1Ty, argTys,
                                                        /*isVarArg*/ false);
 -  messenger = llvm::ConstantExpr::getBitCast(messenger, IGM.PtrTy);
+-  llvm::CallInst *call = Builder.CreateCall(
 +  llvm::Value *messenger;
 +  if (IGM.Triple.isOSBinFormatWasm()) {
 +    // libobjc-wasm: look the IMP up and call it with the right signature.
@@ -117,9 +118,10 @@ index 11fe6bbeda9..3441246b3ac 100644
 +    messenger =
 +        llvm::ConstantExpr::getBitCast(IGM.getObjCMsgSendFn(), IGM.PtrTy);
 +  }
-   llvm::CallInst *call = Builder.CreateCall(
++  llvm::CallInst *call = Builder.IRBuilderBase::CreateCall(
        respondsToSelectorTy, messenger, {object, respondsToSelector, loadSel});
    call->setDoesNotThrow();
+ 
 diff --git a/lib/IRGen/SwiftTargetInfo.cpp b/lib/IRGen/SwiftTargetInfo.cpp
 index 54a0cdd84fc..2bbd0b00c69 100644
 --- a/lib/IRGen/SwiftTargetInfo.cpp

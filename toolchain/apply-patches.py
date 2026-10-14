@@ -332,7 +332,7 @@ patch("swift/lib/IRGen/IRGenSIL.cpp", [
   auto respondsToSelectorTy = llvm::FunctionType::get(IGM.Int1Ty, argTys,
                                                       /*isVarArg*/ false);
   messenger = llvm::ConstantExpr::getBitCast(messenger, IGM.PtrTy);
-  llvm::CallInst *call = Builder.CreateCall(
+  llvm::CallInst *call = Builder.IRBuilderBase::CreateCall(
       respondsToSelectorTy, messenger, {object, respondsToSelector, loadSel});""",
 """  llvm::Type *argTys[] = {
     IGM.ObjCPtrTy,
