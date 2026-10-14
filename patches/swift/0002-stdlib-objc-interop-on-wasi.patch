@@ -1,139 +1,3 @@
-diff --git a/include/swift/Runtime/RuntimeFunctions.def b/include/swift/Runtime/RuntimeFunctions.def
-index b5fb75228b8..12178b2a6a3 100644
---- a/include/swift/Runtime/RuntimeFunctions.def
-+++ b/include/swift/Runtime/RuntimeFunctions.def
-@@ -1971,6 +1971,23 @@ FUNCTION(ObjCAllocWithZone, objc2, objc_allocWithZone,
-          RETURNS(ObjCPtrTy), ARGS(ObjCClassPtrTy), ATTRS(NoUnwind),
-          EFFECT(RuntimeEffect::Allocating),
-          UNKNOWN_MEMEFFECTS)
-+// libobjc-wasm: lookup-based dispatch for targets without messenger trampolines.
-+FUNCTION(ObjCMsgLookup, objc2, objc_msgLookup,
-+         C_CC, AlwaysAvailable,
-+         RETURNS(PtrTy), ARGS(ObjCPtrTy, ObjCSELTy), ATTRS(NoUnwind),
-+         EFFECT(RuntimeEffect::ObjectiveC),
-+         UNKNOWN_MEMEFFECTS)
-+FUNCTION(ObjCMsgLookupSuper, objc2, objc_msgLookupSuper,
-+         C_CC, AlwaysAvailable,
-+         RETURNS(PtrTy), ARGS(ObjCSuperPtrTy, ObjCSELTy), ATTRS(NoUnwind),
-+         EFFECT(RuntimeEffect::ObjectiveC),
-+         UNKNOWN_MEMEFFECTS)
-+FUNCTION(ObjCMsgLookupSuper2, objc2, objc_msgLookupSuper2,
-+         C_CC, AlwaysAvailable,
-+         RETURNS(PtrTy), ARGS(ObjCSuperPtrTy, ObjCSELTy), ATTRS(NoUnwind),
-+         EFFECT(RuntimeEffect::ObjectiveC),
-+         UNKNOWN_MEMEFFECTS)
-+
- FUNCTION(ObjCMsgSend, objc2, objc_msgSend,
-          C_CC, AlwaysAvailable,
-          RETURNS(VoidTy), NO_ARGS, NO_ATTRS, EFFECT(RuntimeEffect::ObjectiveC),
-diff --git a/lib/IRGen/GenObjC.cpp b/lib/IRGen/GenObjC.cpp
-index 85df58f9797..bdbaa9fdd0c 100644
---- a/lib/IRGen/GenObjC.cpp
-+++ b/lib/IRGen/GenObjC.cpp
-@@ -794,16 +794,21 @@ Callee irgen::getObjCMethodCallee(IRGenFunction &IGF,
- 
-   auto kind = methodInfo.getMessageKind();
- 
-+  // libobjc-wasm: WebAssembly type-checks indirect calls, so the IMP is looked
-+  // up (objc_msgLookup / objc_msgLookupSuper2) and called with the method's own
-+  // signature, receiving `self` rather than an objc_super struct.
-+  const bool useMsgLookup = IGF.IGM.Triple.isOSBinFormatWasm();
-+
-   Signature sig = IGF.IGM.getSignature(info.OrigFnType);
-   bool indirectResult =
-     sig.getForeignInfo().ClangInfo->getReturnInfo().isIndirect();
--  if (kind != ObjCMessageKind::Normal) {
-+  if (kind != ObjCMessageKind::Normal && !useMsgLookup) {
-     sig.setType(getMsgSendSuperTy(IGF.IGM, sig.getType(), indirectResult));
-   }
- 
-   // Create the appropriate messenger function.
-   // FIXME: this needs to be target-specific.  Ask Clang for it!
--  llvm::Constant *messenger = [&]() -> llvm::Constant* {
-+  llvm::Constant *messenger = useMsgLookup ? nullptr : [&]() -> llvm::Constant* {
-     if (indirectResult && IGF.IGM.TargetInfo.ObjCUseStret) {
-       switch (kind) {
-       case ObjCMessageKind::Normal:
-@@ -831,7 +836,8 @@ Callee irgen::getObjCMethodCallee(IRGenFunction &IGF,
-     }
-   }();
- 
--  messenger = llvm::ConstantExpr::getBitCast(messenger, IGF.IGM.PtrTy);
-+  if (messenger)
-+    messenger = llvm::ConstantExpr::getBitCast(messenger, IGF.IGM.PtrTy);
- 
-   // super.constructor references an instance method (even though the
-   // decl is really a 'static' member). Similarly, destructors refer
-@@ -854,6 +860,26 @@ Callee irgen::getObjCMethodCallee(IRGenFunction &IGF,
-   Selector selector(method);
-   llvm::Value *selectorValue = IGF.emitObjCSelectorRefLoad(selector.str());
- 
-+  if (useMsgLookup) {
-+    FunctionPointer lookup = [&]() -> FunctionPointer {
-+      switch (kind) {
-+      case ObjCMessageKind::Normal:
-+        return IGF.IGM.getObjCMsgLookupFunctionPointer();
-+      case ObjCMessageKind::Peer:
-+        return IGF.IGM.getObjCMsgLookupSuperFunctionPointer();
-+      case ObjCMessageKind::Super:
-+        return IGF.IGM.getObjCMsgLookupSuper2FunctionPointer();
-+      }
-+      llvm_unreachable("unhandled kind");
-+    }();
-+    llvm::Value *imp =
-+        IGF.Builder.CreateCall(lookup, {receiverValue, selectorValue});
-+    auto impFn = FunctionPointer(FunctionPointer::Kind::Function, imp,
-+                                 PointerAuthInfo(), sig);
-+    // The IMP takes the receiver itself, even for super sends.
-+    return Callee(std::move(info), impFn, selfValue, selectorValue);
-+  }
-+
-   auto fn =
-       FunctionPointer::forDirect(FunctionPointer::Kind::Function, messenger,
-                                  /*secondaryValue*/ nullptr, sig,
-diff --git a/lib/IRGen/IRGenSIL.cpp b/lib/IRGen/IRGenSIL.cpp
-index 11fe6bbeda9..3441246b3ac 100644
---- a/lib/IRGen/IRGenSIL.cpp
-+++ b/lib/IRGen/IRGenSIL.cpp
-@@ -5411,7 +5411,6 @@ void IRGenSILFunction::visitDynamicMethodBranchInst(DynamicMethodBranchInst *i){
-   llvm::Value *respondsToSelector
-     = emitObjCSelectorRefLoad("respondsToSelector:");
-   
--  llvm::Constant *messenger = IGM.getObjCMsgSendFn();
-   llvm::Type *argTys[] = {
-     IGM.ObjCPtrTy,
-     IGM.Int8PtrTy,
-@@ -5419,7 +5418,15 @@ void IRGenSILFunction::visitDynamicMethodBranchInst(DynamicMethodBranchInst *i){
-   };
-   auto respondsToSelectorTy = llvm::FunctionType::get(IGM.Int1Ty, argTys,
-                                                       /*isVarArg*/ false);
--  messenger = llvm::ConstantExpr::getBitCast(messenger, IGM.PtrTy);
-+  llvm::Value *messenger;
-+  if (IGM.Triple.isOSBinFormatWasm()) {
-+    // libobjc-wasm: look the IMP up and call it with the right signature.
-+    messenger = Builder.CreateCall(IGM.getObjCMsgLookupFunctionPointer(),
-+                                   {object, respondsToSelector});
-+  } else {
-+    messenger =
-+        llvm::ConstantExpr::getBitCast(IGM.getObjCMsgSendFn(), IGM.PtrTy);
-+  }
-   llvm::CallInst *call = Builder.CreateCall(
-       respondsToSelectorTy, messenger, {object, respondsToSelector, loadSel});
-   call->setDoesNotThrow();
-diff --git a/lib/IRGen/SwiftTargetInfo.cpp b/lib/IRGen/SwiftTargetInfo.cpp
-index 54a0cdd84fc..2bbd0b00c69 100644
---- a/lib/IRGen/SwiftTargetInfo.cpp
-+++ b/lib/IRGen/SwiftTargetInfo.cpp
-@@ -194,6 +194,9 @@ static void configureWasm32(IRGenModule &IGM, const llvm::Triple &triple,
-                             SwiftTargetInfo &target) {
-   target.LeastValidPointerValue =
-     SWIFT_ABI_WASM32_LEAST_VALID_POINTER;
-+  // libobjc-wasm: messages are dispatched by looking up the IMP, which is then
-+  // called with the method's own signature; there are no stret messengers.
-+  target.ObjCUseStret = false;
- }
- 
- /// Configure a default target.
 diff --git a/stdlib/cmake/modules/AddSwiftStdlib.cmake b/stdlib/cmake/modules/AddSwiftStdlib.cmake
 index a615adb4ed2..f3fa33a48c1 100644
 --- a/stdlib/cmake/modules/AddSwiftStdlib.cmake
@@ -157,17 +21,18 @@ index a615adb4ed2..f3fa33a48c1 100644
  
    if(SWIFT_STDLIB_COMPACT_ABSOLUTE_FUNCTION_POINTER)
 diff --git a/stdlib/cmake/modules/SwiftSource.cmake b/stdlib/cmake/modules/SwiftSource.cmake
-index 98ead31c28e..7806c35263b 100644
+index 98ead31c28e..4b737e45b60 100644
 --- a/stdlib/cmake/modules/SwiftSource.cmake
 +++ b/stdlib/cmake/modules/SwiftSource.cmake
-@@ -626,6 +626,13 @@ function(_compile_swift_files
+@@ -626,6 +626,14 @@ function(_compile_swift_files
  
    if(NOT SWIFT_STDLIB_ENABLE_OBJC_INTEROP)
      list(APPEND swift_flags "-Xfrontend" "-disable-objc-interop")
 +  elseif("${SWIFTFILE_SDK}" STREQUAL "WASI")
 +    # libobjc-wasm: Objective-C interop on WebAssembly.
 +    list(APPEND swift_flags "-Xfrontend" "-enable-objc-interop"
-+         "-Xfrontend" "-disable-objc-attr-requires-foundation-module")
++         "-Xfrontend" "-disable-objc-attr-requires-foundation-module"
++         "-Xfrontend" "-validate-tbd-against-ir=none")   # TBDGen omits ObjC class symbols off Mach-O
 +    if(SWIFT_WASI_OBJC_INCLUDE_DIR)
 +      list(APPEND swift_flags "-Xcc" "-I${SWIFT_WASI_OBJC_INCLUDE_DIR}" "-I${SWIFT_WASI_OBJC_INCLUDE_DIR}")
 +    endif()
@@ -276,20 +141,6 @@ index 0443eddbfbb..73b738b019e 100644
  }
  
  typedef const void * _Nullable (*createIndirectTaggedImplPtr)(id,
-diff --git a/utils/build-script-impl b/utils/build-script-impl
-index eea97f24000..e6a41fb9cc5 100755
---- a/utils/build-script-impl
-+++ b/utils/build-script-impl
-@@ -739,7 +739,8 @@ function set_build_options_for_host() {
-                 done
-             fi
- 
--            cmake_os_sysroot="$(xcrun --sdk ${platform} --show-sdk-path)"
-+            # libobjc-wasm: allow pinning an older macOS SDK (xcrun --sdk ignores SDKROOT)
-+            cmake_os_sysroot="${SWIFT_BUILD_MACOS_SYSROOT:-$(xcrun --sdk ${platform} --show-sdk-path)}"
- 
-             llvm_cmake_options=(
-                 -DCMAKE_OSX_DEPLOYMENT_TARGET:STRING="${cmake_osx_deployment_target}"
 diff --git a/utils/swift_build_support/swift_build_support/products/wasmstdlib.py b/utils/swift_build_support/swift_build_support/products/wasmstdlib.py
 index ca5f5a8580e..796abc0c77c 100644
 --- a/utils/swift_build_support/swift_build_support/products/wasmstdlib.py

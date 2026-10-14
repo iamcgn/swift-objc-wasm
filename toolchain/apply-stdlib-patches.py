@@ -57,7 +57,8 @@ patch("swift/stdlib/cmake/modules/SwiftSource.cmake", [
   elseif("${SWIFTFILE_SDK}" STREQUAL "WASI")
     # libobjc-wasm: Objective-C interop on WebAssembly.
     list(APPEND swift_flags "-Xfrontend" "-enable-objc-interop"
-         "-Xfrontend" "-disable-objc-attr-requires-foundation-module")
+         "-Xfrontend" "-disable-objc-attr-requires-foundation-module"
+         "-Xfrontend" "-validate-tbd-against-ir=none")   # TBDGen omits ObjC class symbols off Mach-O
     if(SWIFT_WASI_OBJC_INCLUDE_DIR)
       list(APPEND swift_flags "-Xcc" "-I${SWIFT_WASI_OBJC_INCLUDE_DIR}" "-I${SWIFT_WASI_OBJC_INCLUDE_DIR}")
     endif()
