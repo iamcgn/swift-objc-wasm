@@ -36,8 +36,8 @@ done
 objs+=("$OUT/obj/CFLite.o")
 if [[ "$WITH_OBJC" == 1 ]]; then
   for f in "$HERE"/src/foundation-lite/*.m; do
-    o="$OUT/obj/$(basename "${f%.m}").o"
-    "$CLANG" "${CFLAGS_COMMON[@]}" -fobjc-runtime=ios-7.0 -fno-objc-arc -c "$f" -o "$o"
+    o="$OUT/obj/fl_$(basename "${f%.m}").o"
+    "$CLANG" "${CFLAGS_COMMON[@]}" -fobjc-runtime=ios-7.0 -fno-objc-arc -fblocks -c "$f" -o "$o"
     objs+=("$o")
   done
 fi

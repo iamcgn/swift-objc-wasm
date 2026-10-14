@@ -13,6 +13,8 @@ static int failures;
 
 static int deallocs, initializes, loads;
 
+typedef struct { int a; int b; } Pair;
+
 @protocol Greeter
 - (int)greet:(int)x;
 @optional
@@ -28,7 +30,7 @@ static int deallocs, initializes, loads;
 - (int)greet:(int)x;
 - (double)half:(double)d;
 - (long long)wide:(long long)w;
-- (struct { int a; int b; })pair;
+- (Pair)pair;
 @end
 
 @implementation Base
@@ -41,7 +43,7 @@ static int deallocs, initializes, loads;
 - (int)greet:(int)x { return x + _value; }
 - (double)half:(double)d { return d / 2; }
 - (long long)wide:(long long)w { return w * 2; }
-- (struct { int a; int b; })pair { struct { int a; int b; } p = { 1, 2 }; return p; }
+- (Pair)pair { Pair p = { 1, 2 }; return p; }
 - (void)dealloc { deallocs++; [child release]; [super dealloc]; }
 - (NSUInteger)hash { return 42; }
 - (BOOL)isEqual:(id)other { return [other isKindOfClass:[Base class]] && [(Base *)other value] == _value; }
@@ -70,7 +72,7 @@ static int deallocs, initializes, loads;
 @end
 @implementation Weird
 + (BOOL)resolveInstanceMethod:(SEL)sel {
-    if (sel == @selector(dynamic)) { class_addMethod(self, sel, imp_dynamic, "i16@0:8"); return YES; }
+    if (sel == @selector(dynamic)) { class_addMethod(self, sel, (IMP)imp_dynamic, "i16@0:8"); return YES; }
     return NO;
 }
 static int imp_dynamic(id self, SEL _cmd) { return 777; }
@@ -128,8 +130,8 @@ int main(void) {
     CHECK([child retainCount] == 1);
     b.child = child;
     CHECK([child retainCount] == 2);
-    __weak Base *weak = nil;
-    objc_storeWeak((id *)&weak, child);
+    id weak = nil;
+    objc_storeWeak(&weak, child);
     CHECK(weak == child);
     [child release];
     CHECK(deallocs == 0);
@@ -139,7 +141,7 @@ int main(void) {
 
     /* constant strings and blocks */
     id str = @"hello";
-    CHECK([str length] == 5 && strcmp([str UTF8String], "hello") == 0);
+    CHECK([str length] == 5 && strcmp((const char *)[str UTF8String], "hello") == 0);
     CHECK([str isEqual:@"hello"] && ![str isEqual:@"world"]);
     int captured = 5;
     int (^block)(int) = ^(int x) { return x + captured; };

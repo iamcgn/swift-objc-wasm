@@ -1,9 +1,9 @@
 diff --git a/clang/lib/CodeGen/CGObjCMac.cpp b/clang/lib/CodeGen/CGObjCMac.cpp
-index 481954438717..04517d0564ee 100644
+index 481954438717..faacfd43fb99 100644
 --- a/clang/lib/CodeGen/CGObjCMac.cpp
 +++ b/clang/lib/CodeGen/CGObjCMac.cpp
-@@ -123,6 +123,22 @@ private:
-         "objc_msgSendSuper");
+@@ -430,6 +430,22 @@ public:
+     return IsSuper ? getMessageSendSuperFn2() : getMessageSendFn();
    }
  
 +  /// IMP objc_msgLookup(id, SEL) and IMP objc_msgLookupSuper2(struct objc_super *, SEL)
@@ -22,9 +22,9 @@ index 481954438717..04517d0564ee 100644
 +        "objc_msgLookupSuper2");
 +  }
 +
-   /// id objc_msgSendSuper2(struct objc_super *super, SEL op, ...)
-   ///
-   /// A slightly different messenger used for super calls.  The class
+   llvm::FunctionCallee getSendStretFn(bool IsSuper) const {
+     return IsSuper ? getMessageSendSuperStretFn() : getMessageSendStretFn();
+   }
 @@ -2080,8 +2096,17 @@ CodeGen::RValue CGObjCCommonMac::EmitMessageSend(
    bool RequiresNullCheck = false;
    bool RequiresSelValue = true;
@@ -63,7 +63,7 @@ index 481954438717..04517d0564ee 100644
      RequiresNullCheck = false;
  
    // Emit a null-check if there's a consumed argument other than the receiver.
-@@ -2132,7 +2159,17 @@ CodeGen::RValue CGObjCCommonMac::EmitMessageSend(
+@@ -2132,7 +2159,24 @@ CodeGen::RValue CGObjCCommonMac::EmitMessageSend(
    }
  
    llvm::CallBase *CallSite;
@@ -75,6 +75,13 @@ index 481954438717..04517d0564ee 100644
 +        IsSuper ? ObjCTypes.getMessageLookupSuperFn2()
 +                : ObjCTypes.getMessageLookupFn(),
 +        LookupArgs);
++    if (IsSuper) {
++      // The IMP takes the receiver itself, not the objc_super struct.
++      Address SuperAddr(Arg0, ObjCTypes.SuperTy, CGF.getPointerAlign());
++      llvm::Value *Receiver =
++          CGF.Builder.CreateLoad(CGF.Builder.CreateStructGEP(SuperAddr, 0));
++      ActualArgs[0] = CallArg(RValue::get(Receiver), Arg0Ty);
++    }
 +    Callee = CGCallee(CGCalleeInfo(), Imp, CGPointerAuthInfo());
 +  } else {
 +    Callee = CGCallee::forDirect(BitcastFn);
@@ -82,7 +89,7 @@ index 481954438717..04517d0564ee 100644
    RValue rvalue =
        CGF.EmitCall(MSI.CallInfo, Callee, Return, ActualArgs, &CallSite);
  
-@@ -2146,6 +2183,17 @@ CodeGen::RValue CGObjCCommonMac::EmitMessageSend(
+@@ -2146,6 +2190,17 @@ CodeGen::RValue CGObjCCommonMac::EmitMessageSend(
                               RequiresNullCheck ? Method : nullptr);
  }
  
@@ -100,7 +107,7 @@ index 481954438717..04517d0564ee 100644
  static Qualifiers::GC GetGCAttrTypeForType(ASTContext &Ctx, QualType FQT,
                                             bool pointee = false) {
    // Note that GC qualification applies recursively to C pointer types
-@@ -2979,7 +3027,7 @@ llvm::Constant *CGObjCMac::GetOrEmitProtocol(const ObjCProtocolDecl *PD) {
+@@ -2979,7 +3034,7 @@ llvm::Constant *CGObjCMac::GetOrEmitProtocol(const ObjCProtocolDecl *PD) {
  
      Protocols[PD->getIdentifier()] = Entry;
    }
@@ -109,7 +116,7 @@ index 481954438717..04517d0564ee 100644
  
    return Entry;
  }
-@@ -3505,7 +3553,7 @@ void CGObjCMac::GenerateClass(const ObjCImplementationDecl *ID) {
+@@ -3505,7 +3560,7 @@ void CGObjCMac::GenerateClass(const ObjCImplementationDecl *ID) {
      values.finishAndSetAsInitializer(GV);
      GV->setSection(Section);
      GV->setAlignment(CGM.getPointerAlign().getAsAlign());
@@ -118,7 +125,7 @@ index 481954438717..04517d0564ee 100644
    } else
      GV = CreateMetadataVar(Name, values, Section, CGM.getPointerAlign(), true);
    DefinedClasses.push_back(GV);
-@@ -3571,7 +3619,7 @@ CGObjCMac::EmitMetaClass(const ObjCImplementationDecl *ID,
+@@ -3571,7 +3626,7 @@ CGObjCMac::EmitMetaClass(const ObjCImplementationDecl *ID,
                                        llvm::GlobalValue::PrivateLinkage);
    }
    GV->setSection("__OBJC,__meta_class,regular,no_dead_strip");
@@ -127,7 +134,7 @@ index 481954438717..04517d0564ee 100644
  
    return GV;
  }
-@@ -4023,7 +4071,7 @@ CGObjCCommonMac::CreateMetadataVar(Twine Name, ConstantStructBuilder &Init,
+@@ -4023,7 +4078,7 @@ CGObjCCommonMac::CreateMetadataVar(Twine Name, ConstantStructBuilder &Init,
    if (!Section.empty())
      GV->setSection(Section);
    if (AddToUsed)
@@ -136,7 +143,7 @@ index 481954438717..04517d0564ee 100644
    return GV;
  }
  
-@@ -4041,7 +4089,7 @@ llvm::GlobalVariable *CGObjCCommonMac::CreateMetadataVar(Twine Name,
+@@ -4041,7 +4096,7 @@ llvm::GlobalVariable *CGObjCCommonMac::CreateMetadataVar(Twine Name,
      GV->setSection(Section);
    GV->setAlignment(Align.getAsAlign());
    if (AddToUsed)
@@ -145,7 +152,7 @@ index 481954438717..04517d0564ee 100644
    return GV;
  }
  
-@@ -4096,7 +4144,7 @@ CGObjCCommonMac::CreateCStringLiteral(StringRef Name, ObjCLabelType Type,
+@@ -4096,7 +4151,7 @@ CGObjCCommonMac::CreateCStringLiteral(StringRef Name, ObjCLabelType Type,
      GV->setSection(Section);
    GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
    GV->setAlignment(CharUnits::One().getAsAlign());
@@ -154,7 +161,7 @@ index 481954438717..04517d0564ee 100644
  
    return GV;
  }
-@@ -4960,12 +5008,12 @@ std::string CGObjCCommonMac::GetSectionName(StringRef Section,
+@@ -4960,12 +5015,12 @@ std::string CGObjCCommonMac::GetSectionName(StringRef Section,
      return ("__DATA," + Section + "," + MachOAttributes).str();
    }
    case llvm::Triple::ELF:
@@ -168,7 +175,7 @@ index 481954438717..04517d0564ee 100644
    case llvm::Triple::GOFF:
    case llvm::Triple::SPIRV:
    case llvm::Triple::XCOFF:
-@@ -5603,7 +5651,7 @@ void CGObjCMac::FinishModule() {
+@@ -5603,7 +5658,7 @@ void CGObjCMac::FinishModule() {
      values.addNullPointer(ObjCTypes.MethodDescriptionListPtrTy);
      values.addNullPointer(ObjCTypes.MethodDescriptionListPtrTy);
      values.finishAndSetAsInitializer(global);
@@ -177,7 +184,7 @@ index 481954438717..04517d0564ee 100644
    }
  
    // Add assembler directives to add lazy undefined symbol references
-@@ -6094,7 +6142,7 @@ void CGObjCNonFragileABIMac::AddModuleClassList(
+@@ -6094,7 +6149,7 @@ void CGObjCNonFragileABIMac::AddModuleClassList(
        llvm::GlobalValue::PrivateLinkage, Init, SymbolName);
    GV->setAlignment(CGM.getDataLayout().getABITypeAlign(Init->getType()));
    GV->setSection(SectionName);
@@ -186,7 +193,7 @@ index 481954438717..04517d0564ee 100644
  }
  
  void CGObjCNonFragileABIMac::FinishNonFragileABIModule() {
-@@ -6143,6 +6191,10 @@ void CGObjCNonFragileABIMac::FinishNonFragileABIModule() {
+@@ -6143,6 +6198,10 @@ void CGObjCNonFragileABIMac::FinishNonFragileABIModule() {
  /// except for the 19 selectors in the list, we generate 32bit-style
  /// message dispatch call for all the rest.
  bool CGObjCNonFragileABIMac::isVTableDispatchedSelector(Selector Sel) {
@@ -197,7 +204,7 @@ index 481954438717..04517d0564ee 100644
    // At various points we've experimented with using vtable-based
    // dispatch for all methods.
    switch (CGM.getCodeGenOpts().getObjCDispatchMethod()) {
-@@ -6659,7 +6711,7 @@ void CGObjCNonFragileABIMac::GenerateCategory(const ObjCCategoryImplDecl *OCD) {
+@@ -6659,7 +6718,7 @@ void CGObjCNonFragileABIMac::GenerateCategory(const ObjCCategoryImplDecl *OCD) {
  
    llvm::GlobalVariable *GCATV =
        finishAndCreateGlobal(values, ExtCatName.str(), CGM);
@@ -206,7 +213,7 @@ index 481954438717..04517d0564ee 100644
    if (Interface->hasAttr<ObjCClassStubAttr>())
      DefinedStubCategories.push_back(GCATV);
    else
-@@ -6774,7 +6826,7 @@ llvm::Constant *CGObjCNonFragileABIMac::emitMethodList(
+@@ -6774,7 +6833,7 @@ llvm::Constant *CGObjCNonFragileABIMac::emitMethodList(
    methodArray.finishAndAddTo(values);
  
    llvm::GlobalVariable *GV = finishAndCreateGlobal(values, prefix + name, CGM);
@@ -215,7 +222,7 @@ index 481954438717..04517d0564ee 100644
    return GV;
  }
  
-@@ -6918,7 +6970,7 @@ CGObjCNonFragileABIMac::EmitIvarList(const ObjCImplementationDecl *ID) {
+@@ -6918,7 +6977,7 @@ CGObjCNonFragileABIMac::EmitIvarList(const ObjCImplementationDecl *ID) {
    const char *Prefix = "_OBJC_$_INSTANCE_VARIABLES_";
    llvm::GlobalVariable *GV = finishAndCreateGlobal(
        ivarList, Prefix + OID->getObjCRuntimeNameAsString(), CGM);
@@ -224,7 +231,7 @@ index 481954438717..04517d0564ee 100644
    return GV;
  }
  
-@@ -7105,7 +7157,7 @@ llvm::Constant *CGObjCNonFragileABIMac::EmitProtocolList(
+@@ -7105,7 +7164,7 @@ llvm::Constant *CGObjCNonFragileABIMac::EmitProtocolList(
    values.fillPlaceholderWithInt(countSlot, ObjCTypes.LongTy, count);
  
    GV = finishAndCreateGlobal(values, Name, CGM);
@@ -233,7 +240,7 @@ index 481954438717..04517d0564ee 100644
    return GV;
  }
  
-@@ -7396,7 +7448,7 @@ llvm::Value *CGObjCNonFragileABIMac::EmitClassRefFromId(
+@@ -7396,7 +7455,7 @@ llvm::Value *CGObjCNonFragileABIMac::EmitClassRefFromId(
      if (!ID || !ID->hasAttr<ObjCClassStubAttr>())
        Entry->setSection(SectionName);
  
@@ -242,7 +249,7 @@ index 481954438717..04517d0564ee 100644
    }
  
    return EmitLoadOfClassRef(CGF, ID, Entry);
-@@ -7432,7 +7484,7 @@ CGObjCNonFragileABIMac::EmitSuperClassRef(CodeGenFunction &CGF,
+@@ -7432,7 +7491,7 @@ CGObjCNonFragileABIMac::EmitSuperClassRef(CodeGenFunction &CGF,
                                       "OBJC_CLASSLIST_SUP_REFS_$_");
      Entry->setAlignment(CGF.getPointerAlign().getAsAlign());
      Entry->setSection(SectionName);
@@ -251,7 +258,7 @@ index 481954438717..04517d0564ee 100644
    }
  
    return EmitLoadOfClassRef(CGF, ID, Entry);
-@@ -7454,7 +7506,7 @@ llvm::Value *CGObjCNonFragileABIMac::EmitMetaClassRef(
+@@ -7454,7 +7513,7 @@ llvm::Value *CGObjCNonFragileABIMac::EmitMetaClassRef(
                                       MetaClassGV, "OBJC_CLASSLIST_SUP_REFS_$_");
      Entry->setAlignment(Align.getAsAlign());
      Entry->setSection(SectionName);
@@ -260,7 +267,7 @@ index 481954438717..04517d0564ee 100644
    }
  
    return CGF.Builder.CreateAlignedLoad(ObjCTypes.ClassnfABIPtrTy, Entry, Align);
-@@ -7540,7 +7592,7 @@ ConstantAddress CGObjCNonFragileABIMac::EmitSelectorAddr(Selector Sel) {
+@@ -7540,7 +7599,7 @@ ConstantAddress CGObjCNonFragileABIMac::EmitSelectorAddr(Selector Sel) {
      Entry->setExternallyInitialized(true);
      Entry->setSection(SectionName);
      Entry->setAlignment(Align.getAsAlign());

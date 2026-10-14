@@ -16,7 +16,7 @@ status=0
 for t in "$HERE"/*.c $( [[ "$WITH_OBJC" == 1 ]] && ls "$HERE"/*.m 2>/dev/null ); do
   name="$(basename "${t%.*}")"
   case "$t" in
-    *.m) "$CLANG" "${FLAGS[@]}" -fobjc-runtime=ios-7.0 -fno-objc-arc -c "$t" -o "$OUT/tests/$name.o";;
+    *.m) "$CLANG" "${FLAGS[@]}" -fobjc-runtime=ios-7.0 -fno-objc-arc -fblocks -c "$t" -o "$OUT/tests/$name.o";;
     *.c) "$CLANG" "${FLAGS[@]}" -std=c11 -c "$t" -o "$OUT/tests/$name.o";;
   esac
   "$CLANG" "${FLAGS[@]}" -Wl,--gc-sections "$OUT/tests/$name.o" "$OUT/libobjc.a" -o "$OUT/tests/$name.wasm"

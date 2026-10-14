@@ -47,18 +47,12 @@ patch(CG, [
 "case llvm::Triple::Wasm: // libobjc-wasm"),
 
 # 2. Lookup functions next to the messengers.
-("""  llvm::FunctionCallee getMessageSendSuperFn() const {
-    llvm::Type *params[] = {SuperPtrTy, SelectorPtrTy};
-    return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(ObjectPtrTy, params, true),
-        "objc_msgSendSuper");
+("""  llvm::FunctionCallee getSendFn2(bool IsSuper) const {
+    return IsSuper ? getMessageSendSuperFn2() : getMessageSendFn();
   }
 """,
-"""  llvm::FunctionCallee getMessageSendSuperFn() const {
-    llvm::Type *params[] = {SuperPtrTy, SelectorPtrTy};
-    return CGM.CreateRuntimeFunction(
-        llvm::FunctionType::get(ObjectPtrTy, params, true),
-        "objc_msgSendSuper");
+"""  llvm::FunctionCallee getSendFn2(bool IsSuper) const {
+    return IsSuper ? getMessageSendSuperFn2() : getMessageSendFn();
   }
 
   /// IMP objc_msgLookup(id, SEL) and IMP objc_msgLookupSuper2(struct objc_super *, SEL)
@@ -142,6 +136,13 @@ patch(CG, [
         IsSuper ? ObjCTypes.getMessageLookupSuperFn2()
                 : ObjCTypes.getMessageLookupFn(),
         LookupArgs);
+    if (IsSuper) {
+      // The IMP takes the receiver itself, not the objc_super struct.
+      Address SuperAddr(Arg0, ObjCTypes.SuperTy, CGF.getPointerAlign());
+      llvm::Value *Receiver =
+          CGF.Builder.CreateLoad(CGF.Builder.CreateStructGEP(SuperAddr, 0));
+      ActualArgs[0] = CallArg(RValue::get(Receiver), Arg0Ty);
+    }
     Callee = CGCallee(CGCalleeInfo(), Imp, CGPointerAuthInfo());
   } else {
     Callee = CGCallee::forDirect(BitcastFn);
