@@ -11,7 +11,11 @@ U="$TOOLCHAIN_DESTDIR/usr"
 rm -rf "$U" && mkdir -p "$U/bin" "$U/lib/swift"
 cp "$SWIFT_BUILD/bin/swift-frontend" "$U/bin/"
 for alias in swift swift-autolink-extract swift-symbolgraph-extract swift-api-extract swift-cache-tool swift-api-digester; do ln -f "$U/bin/swift-frontend" "$U/bin/$alias"; done
-cp "$STOCK_TOOLCHAIN/usr/bin/swift-driver" "$U/bin/swift-driver" && ln -f "$U/bin/swift-driver" "$U/bin/swiftc"
+# The early swift-driver is statically linked against its packages; the stock one needs @rpath dylibs.
+EARLY_DRIVER="$SWIFT_SOURCE/build/$BUILD_SUBDIR/earlyswiftdriver-macosx-arm64/release/bin/swift-driver"
+if [[ -x "$EARLY_DRIVER" ]]; then cp "$EARLY_DRIVER" "$U/bin/swift-driver"; else cp "$STOCK_TOOLCHAIN/usr/bin/swift-driver" "$U/bin/swift-driver"; fi
+ln -f "$U/bin/swift-driver" "$U/bin/swiftc"
+ln -sfn "$STOCK_TOOLCHAIN/usr/lib/swift/macosx" "$U/lib/swift/macosx"
 cp "$STOCK_TOOLCHAIN/usr/bin/swift-help" "$U/bin/" 2>/dev/null || true
 cp "$LLVM_BUILD/bin/clang-21" "$U/bin/clang-21" && ln -sf clang-21 "$U/bin/clang" && ln -sf clang-21 "$U/bin/clang++" && ln -sf clang-21 "$U/bin/clang-cl"
 cp "$LLVM_BUILD/bin/lld" "$U/bin/lld" && for t in wasm-ld ld.lld ld64.lld lld-link; do ln -sf lld "$U/bin/$t"; done
