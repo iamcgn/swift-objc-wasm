@@ -8,10 +8,11 @@ JOBS=${JOBS:-6}
 # The LLVM 21 sources do not compile against the macOS 27 SDK's libc++; build against
 # the Command Line Tools' MacOSX26 SDK (xcrun --sdk ignores SDKROOT, so override CMake).
 MACOS_SDK=${MACOS_SDK:-/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk}
+export SWIFT_BUILD_MACOS_SYSROOT="$MACOS_SDK"
 cd "$SWIFT_SOURCE"
 exec ./swift/utils/build-script --release --assertions --build-subdir objc-wasm \
   --skip-ios --skip-tvos --skip-watchos --skip-xros --skip-build-benchmarks \
-  --skip-test-swift --skip-test-cmark --skip-build-compiler-rt \
+  --skip-test-swift --skip-test-cmark --skip-build-compiler-rt --reconfigure \
   --build-swift-dynamic-stdlib=0 --build-swift-dynamic-sdk-overlay=0 \
   --build-swift-static-stdlib=0 --build-swift-static-sdk-overlay=0 \
   --llvm-targets-to-build="AArch64;X86;WebAssembly" \

@@ -1,0 +1,313 @@
+diff --git a/include/swift/Runtime/RuntimeFunctions.def b/include/swift/Runtime/RuntimeFunctions.def
+index b5fb75228b8..12178b2a6a3 100644
+--- a/include/swift/Runtime/RuntimeFunctions.def
++++ b/include/swift/Runtime/RuntimeFunctions.def
+@@ -1971,6 +1971,23 @@ FUNCTION(ObjCAllocWithZone, objc2, objc_allocWithZone,
+          RETURNS(ObjCPtrTy), ARGS(ObjCClassPtrTy), ATTRS(NoUnwind),
+          EFFECT(RuntimeEffect::Allocating),
+          UNKNOWN_MEMEFFECTS)
++// libobjc-wasm: lookup-based dispatch for targets without messenger trampolines.
++FUNCTION(ObjCMsgLookup, objc2, objc_msgLookup,
++         C_CC, AlwaysAvailable,
++         RETURNS(PtrTy), ARGS(ObjCPtrTy, ObjCSELTy), ATTRS(NoUnwind),
++         EFFECT(RuntimeEffect::ObjectiveC),
++         UNKNOWN_MEMEFFECTS)
++FUNCTION(ObjCMsgLookupSuper, objc2, objc_msgLookupSuper,
++         C_CC, AlwaysAvailable,
++         RETURNS(PtrTy), ARGS(ObjCSuperPtrTy, ObjCSELTy), ATTRS(NoUnwind),
++         EFFECT(RuntimeEffect::ObjectiveC),
++         UNKNOWN_MEMEFFECTS)
++FUNCTION(ObjCMsgLookupSuper2, objc2, objc_msgLookupSuper2,
++         C_CC, AlwaysAvailable,
++         RETURNS(PtrTy), ARGS(ObjCSuperPtrTy, ObjCSELTy), ATTRS(NoUnwind),
++         EFFECT(RuntimeEffect::ObjectiveC),
++         UNKNOWN_MEMEFFECTS)
++
+ FUNCTION(ObjCMsgSend, objc2, objc_msgSend,
+          C_CC, AlwaysAvailable,
+          RETURNS(VoidTy), NO_ARGS, NO_ATTRS, EFFECT(RuntimeEffect::ObjectiveC),
+diff --git a/lib/IRGen/GenObjC.cpp b/lib/IRGen/GenObjC.cpp
+index 85df58f9797..bdbaa9fdd0c 100644
+--- a/lib/IRGen/GenObjC.cpp
++++ b/lib/IRGen/GenObjC.cpp
+@@ -794,16 +794,21 @@ Callee irgen::getObjCMethodCallee(IRGenFunction &IGF,
+ 
+   auto kind = methodInfo.getMessageKind();
+ 
++  // libobjc-wasm: WebAssembly type-checks indirect calls, so the IMP is looked
++  // up (objc_msgLookup / objc_msgLookupSuper2) and called with the method's own
++  // signature, receiving `self` rather than an objc_super struct.
++  const bool useMsgLookup = IGF.IGM.Triple.isOSBinFormatWasm();
++
+   Signature sig = IGF.IGM.getSignature(info.OrigFnType);
+   bool indirectResult =
+     sig.getForeignInfo().ClangInfo->getReturnInfo().isIndirect();
+-  if (kind != ObjCMessageKind::Normal) {
++  if (kind != ObjCMessageKind::Normal && !useMsgLookup) {
+     sig.setType(getMsgSendSuperTy(IGF.IGM, sig.getType(), indirectResult));
+   }
+ 
+   // Create the appropriate messenger function.
+   // FIXME: this needs to be target-specific.  Ask Clang for it!
+-  llvm::Constant *messenger = [&]() -> llvm::Constant* {
++  llvm::Constant *messenger = useMsgLookup ? nullptr : [&]() -> llvm::Constant* {
+     if (indirectResult && IGF.IGM.TargetInfo.ObjCUseStret) {
+       switch (kind) {
+       case ObjCMessageKind::Normal:
+@@ -831,7 +836,8 @@ Callee irgen::getObjCMethodCallee(IRGenFunction &IGF,
+     }
+   }();
+ 
+-  messenger = llvm::ConstantExpr::getBitCast(messenger, IGF.IGM.PtrTy);
++  if (messenger)
++    messenger = llvm::ConstantExpr::getBitCast(messenger, IGF.IGM.PtrTy);
+ 
+   // super.constructor references an instance method (even though the
+   // decl is really a 'static' member). Similarly, destructors refer
+@@ -854,6 +860,26 @@ Callee irgen::getObjCMethodCallee(IRGenFunction &IGF,
+   Selector selector(method);
+   llvm::Value *selectorValue = IGF.emitObjCSelectorRefLoad(selector.str());
+ 
++  if (useMsgLookup) {
++    FunctionPointer lookup = [&]() -> FunctionPointer {
++      switch (kind) {
++      case ObjCMessageKind::Normal:
++        return IGF.IGM.getObjCMsgLookupFunctionPointer();
++      case ObjCMessageKind::Peer:
++        return IGF.IGM.getObjCMsgLookupSuperFunctionPointer();
++      case ObjCMessageKind::Super:
++        return IGF.IGM.getObjCMsgLookupSuper2FunctionPointer();
++      }
++      llvm_unreachable("unhandled kind");
++    }();
++    llvm::Value *imp =
++        IGF.Builder.CreateCall(lookup, {receiverValue, selectorValue});
++    auto impFn = FunctionPointer(FunctionPointer::Kind::Function, imp,
++                                 PointerAuthInfo(), sig);
++    // The IMP takes the receiver itself, even for super sends.
++    return Callee(std::move(info), impFn, selfValue, selectorValue);
++  }
++
+   auto fn =
+       FunctionPointer::forDirect(FunctionPointer::Kind::Function, messenger,
+                                  /*secondaryValue*/ nullptr, sig,
+diff --git a/lib/IRGen/IRGenSIL.cpp b/lib/IRGen/IRGenSIL.cpp
+index 11fe6bbeda9..3441246b3ac 100644
+--- a/lib/IRGen/IRGenSIL.cpp
++++ b/lib/IRGen/IRGenSIL.cpp
+@@ -5411,7 +5411,6 @@ void IRGenSILFunction::visitDynamicMethodBranchInst(DynamicMethodBranchInst *i){
+   llvm::Value *respondsToSelector
+     = emitObjCSelectorRefLoad("respondsToSelector:");
+   
+-  llvm::Constant *messenger = IGM.getObjCMsgSendFn();
+   llvm::Type *argTys[] = {
+     IGM.ObjCPtrTy,
+     IGM.Int8PtrTy,
+@@ -5419,7 +5418,15 @@ void IRGenSILFunction::visitDynamicMethodBranchInst(DynamicMethodBranchInst *i){
+   };
+   auto respondsToSelectorTy = llvm::FunctionType::get(IGM.Int1Ty, argTys,
+                                                       /*isVarArg*/ false);
+-  messenger = llvm::ConstantExpr::getBitCast(messenger, IGM.PtrTy);
++  llvm::Value *messenger;
++  if (IGM.Triple.isOSBinFormatWasm()) {
++    // libobjc-wasm: look the IMP up and call it with the right signature.
++    messenger = Builder.CreateCall(IGM.getObjCMsgLookupFunctionPointer(),
++                                   {object, respondsToSelector});
++  } else {
++    messenger =
++        llvm::ConstantExpr::getBitCast(IGM.getObjCMsgSendFn(), IGM.PtrTy);
++  }
+   llvm::CallInst *call = Builder.CreateCall(
+       respondsToSelectorTy, messenger, {object, respondsToSelector, loadSel});
+   call->setDoesNotThrow();
+diff --git a/lib/IRGen/SwiftTargetInfo.cpp b/lib/IRGen/SwiftTargetInfo.cpp
+index 54a0cdd84fc..2bbd0b00c69 100644
+--- a/lib/IRGen/SwiftTargetInfo.cpp
++++ b/lib/IRGen/SwiftTargetInfo.cpp
+@@ -194,6 +194,9 @@ static void configureWasm32(IRGenModule &IGM, const llvm::Triple &triple,
+                             SwiftTargetInfo &target) {
+   target.LeastValidPointerValue =
+     SWIFT_ABI_WASM32_LEAST_VALID_POINTER;
++  // libobjc-wasm: messages are dispatched by looking up the IMP, which is then
++  // called with the method's own signature; there are no stret messengers.
++  target.ObjCUseStret = false;
+ }
+ 
+ /// Configure a default target.
+diff --git a/stdlib/cmake/modules/AddSwiftStdlib.cmake b/stdlib/cmake/modules/AddSwiftStdlib.cmake
+index a615adb4ed2..f3fa33a48c1 100644
+--- a/stdlib/cmake/modules/AddSwiftStdlib.cmake
++++ b/stdlib/cmake/modules/AddSwiftStdlib.cmake
+@@ -384,6 +384,17 @@ function(_add_target_variant_c_compile_flags)
+ 
+   if(NOT SWIFT_STDLIB_ENABLE_OBJC_INTEROP)
+     list(APPEND result "-DSWIFT_OBJC_INTEROP=0")
++  elseif("${CFLAGS_SDK}" STREQUAL "WASI")
++    # libobjc-wasm: Objective-C interop on WebAssembly. The is-Swift bit the
++    # compiler emits off-Darwin is 2; the runtime's non-Apple default is 1.
++    list(APPEND result "-DSWIFT_OBJC_INTEROP=1" "-DSWIFT_CLASS_IS_SWIFT_MASK=2ULL"
++         "-fobjc-runtime=ios-7.0")
++    if(SWIFT_WASI_OBJC_INCLUDE_DIR)
++      list(APPEND result "-I${SWIFT_WASI_OBJC_INCLUDE_DIR}")
++    endif()
++    if(SWIFT_WASI_OBJC_SHIMS_DIR)
++      list(APPEND result "-I${SWIFT_WASI_OBJC_SHIMS_DIR}")
++    endif()
+   endif()
+ 
+   if(SWIFT_STDLIB_COMPACT_ABSOLUTE_FUNCTION_POINTER)
+diff --git a/stdlib/cmake/modules/SwiftSource.cmake b/stdlib/cmake/modules/SwiftSource.cmake
+index 98ead31c28e..7806c35263b 100644
+--- a/stdlib/cmake/modules/SwiftSource.cmake
++++ b/stdlib/cmake/modules/SwiftSource.cmake
+@@ -626,6 +626,13 @@ function(_compile_swift_files
+ 
+   if(NOT SWIFT_STDLIB_ENABLE_OBJC_INTEROP)
+     list(APPEND swift_flags "-Xfrontend" "-disable-objc-interop")
++  elseif("${SWIFTFILE_SDK}" STREQUAL "WASI")
++    # libobjc-wasm: Objective-C interop on WebAssembly.
++    list(APPEND swift_flags "-Xfrontend" "-enable-objc-interop"
++         "-Xfrontend" "-disable-objc-attr-requires-foundation-module")
++    if(SWIFT_WASI_OBJC_INCLUDE_DIR)
++      list(APPEND swift_flags "-Xcc" "-I${SWIFT_WASI_OBJC_INCLUDE_DIR}" "-I${SWIFT_WASI_OBJC_INCLUDE_DIR}")
++    endif()
+   endif()
+ 
+   if(SWIFT_STDLIB_EXPERIMENTAL_HERMETIC_SEAL_AT_LINK)
+diff --git a/stdlib/public/CMakeLists.txt b/stdlib/public/CMakeLists.txt
+index dc9db0d808d..0c8dfce4fd9 100644
+--- a/stdlib/public/CMakeLists.txt
++++ b/stdlib/public/CMakeLists.txt
+@@ -393,6 +393,10 @@ endif()
+ 
+ if(SWIFT_BUILD_SDK_OVERLAY OR (SWIFT_BUILD_TEST_SUPPORT_MODULES AND SWIFT_BUILD_DYNAMIC_SDK_OVERLAY_default))
+   add_subdirectory(Platform)
++  # libobjc-wasm: the ObjectiveC overlay for WebAssembly with interop enabled.
++  if(SWIFT_STDLIB_ENABLE_OBJC_INTEROP AND "WASI" IN_LIST SWIFT_SDKS)
++    add_subdirectory(ObjectiveC)
++  endif()
+ endif()
+ 
+ if(SWIFT_BUILD_SDK_OVERLAY)
+diff --git a/stdlib/public/Resources/wasi/static-executable-args.lnk b/stdlib/public/Resources/wasi/static-executable-args.lnk
+index 59f938fbab3..11173f7166d 100644
+--- a/stdlib/public/Resources/wasi/static-executable-args.lnk
++++ b/stdlib/public/Resources/wasi/static-executable-args.lnk
+@@ -1,5 +1,6 @@
+ -static
+ -lswiftSwiftOnoneSupport
++-lobjc
+ -ldl
+ -lstdc++
+ -lm
+diff --git a/stdlib/public/runtime/SwiftObject.mm b/stdlib/public/runtime/SwiftObject.mm
+index acee3dc8244..2e34c00a699 100644
+--- a/stdlib/public/runtime/SwiftObject.mm
++++ b/stdlib/public/runtime/SwiftObject.mm
+@@ -480,6 +480,24 @@ - (BOOL)isEqual:(id)other {
+   return NO;
+ }
+ 
++#if defined(__wasm__)
++// libobjc-wasm: WebAssembly type-checks indirect calls; the runtime provides a
++// typed perform that selects the call signature from the method's encoding.
++extern "C" id objc_performSelector(id self, SEL sel, unsigned int argc, id arg1, id arg2);
++
++- (id)performSelector:(SEL)aSelector {
++  return objc_performSelector(self, aSelector, 0, nil, nil);
++}
++
++- (id)performSelector:(SEL)aSelector withObject:(id)object {
++  return objc_performSelector(self, aSelector, 1, object, nil);
++}
++
++- (id)performSelector:(SEL)aSelector withObject:(id)object1
++                                     withObject:(id)object2 {
++  return objc_performSelector(self, aSelector, 2, object1, object2);
++}
++#else
+ - (id)performSelector:(SEL)aSelector {
+   return ((id(*)(id, SEL))objc_msgSend)(self, aSelector);
+ }
+@@ -493,6 +511,7 @@ - (id)performSelector:(SEL)aSelector withObject:(id)object1
+   return ((id(*)(id, SEL, id, id))objc_msgSend)(self, aSelector, object1,
+                                                                  object2);
+ }
++#endif
+ 
+ - (id /* NSString */)description {
+   return _getObjectDescription(self);
+diff --git a/stdlib/public/stubs/FoundationHelpers.mm b/stdlib/public/stubs/FoundationHelpers.mm
+index 0443eddbfbb..73b738b019e 100644
+--- a/stdlib/public/stubs/FoundationHelpers.mm
++++ b/stdlib/public/stubs/FoundationHelpers.mm
+@@ -41,6 +41,13 @@
+                                        const void *addr) SWIFT_RUNTIME_WEAK_IMPORT;
+ 
+ static void _initializeBridgingFunctionsImpl(void *ctxt) {
++#if defined(__wasm__)
++  // libobjc-wasm: static linking, no dlsym; CoreFoundation-lite is linked in.
++  _CFStringTypeID = CFStringGetTypeID();
++  _CFGetTypeID = &CFGetTypeID;
++  _CFStringHashNSString = &CFStringHashNSString;
++  _CFStringHashCString = &CFStringHashCString;
++#else
+   auto getStringTypeID =
+     (CFTypeID(*)(void))
+     dlsym(RTLD_DEFAULT, "CFStringGetTypeID");
+@@ -53,6 +60,7 @@ static void _initializeBridgingFunctionsImpl(void *ctxt) {
+   _CFStringHashCString = (CFHashCode(*)(const uint8_t *, CFIndex))dlsym(
+                                                    RTLD_DEFAULT,
+                                                    "CFStringHashCString");
++#endif
+ }
+ 
+ static inline void initializeBridgingFunctions() {
+@@ -121,8 +129,12 @@ typedef _swift_shims_NSUInteger (*getLengthImplPtr)(id,
+ 
+ __swift_uint8_t
+ _swift_stdlib_dyld_is_objc_constant_string(const void *addr) {
++#if defined(__wasm__)
++  return 0;   // libobjc-wasm: no dyld
++#else
+   return (SWIFT_RUNTIME_WEAK_CHECK(_dyld_is_objc_constant)
+           && SWIFT_RUNTIME_WEAK_USE(_dyld_is_objc_constant(dyld_objc_string_kind, addr))) ? 1 : 0;
++#endif
+ }
+ 
+ typedef const void * _Nullable (*createIndirectTaggedImplPtr)(id,
+diff --git a/utils/build-script-impl b/utils/build-script-impl
+index eea97f24000..e6a41fb9cc5 100755
+--- a/utils/build-script-impl
++++ b/utils/build-script-impl
+@@ -739,7 +739,8 @@ function set_build_options_for_host() {
+                 done
+             fi
+ 
+-            cmake_os_sysroot="$(xcrun --sdk ${platform} --show-sdk-path)"
++            # libobjc-wasm: allow pinning an older macOS SDK (xcrun --sdk ignores SDKROOT)
++            cmake_os_sysroot="${SWIFT_BUILD_MACOS_SYSROOT:-$(xcrun --sdk ${platform} --show-sdk-path)}"
+ 
+             llvm_cmake_options=(
+                 -DCMAKE_OSX_DEPLOYMENT_TARGET:STRING="${cmake_osx_deployment_target}"
+diff --git a/utils/swift_build_support/swift_build_support/products/wasmstdlib.py b/utils/swift_build_support/swift_build_support/products/wasmstdlib.py
+index ca5f5a8580e..796abc0c77c 100644
+--- a/utils/swift_build_support/swift_build_support/products/wasmstdlib.py
++++ b/utils/swift_build_support/swift_build_support/products/wasmstdlib.py
+@@ -217,6 +217,16 @@ class WasmStdlib(cmake_product.CMakeProduct):
+ 
+     def add_extra_cmake_options(self):
+         self.cmake_options.define('SWIFT_THREADING_PACKAGE:STRING', 'none')
++        # libobjc-wasm: Objective-C interop, when the runtime's install dir is given.
++        objc_runtime = os.environ.get('SWIFT_OBJC_WASM_RUNTIME')
++        if objc_runtime:
++            self.cmake_options.define('SWIFT_STDLIB_ENABLE_OBJC_INTEROP:BOOL', 'TRUE')
++            self.cmake_options.define('SWIFT_WASI_OBJC_INCLUDE_DIR:PATH',
++                                      os.path.join(objc_runtime, 'include'))
++            self.cmake_options.define('SWIFT_WASI_OBJC_SHIMS_DIR:PATH',
++                                      os.path.join(objc_runtime, 'include', '_stdlib_shims'))
++            self.cmake_options.define('SWIFT_WASI_OBJC_LIB:FILEPATH',
++                                      os.path.join(objc_runtime, 'lib', 'libobjc.a'))
+ 
+     def test(self, host_target):
+         self._test(host_target, 'wasm32-wasip1')

@@ -2,4 +2,5 @@ module ObjectiveC [system] [extern_c] {
   umbrella "."
   export *
   module * { export * }
+  link "objc"
 }
