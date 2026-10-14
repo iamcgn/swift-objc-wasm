@@ -27,7 +27,7 @@ index b5fb75228b8..12178b2a6a3 100644
           C_CC, AlwaysAvailable,
           RETURNS(VoidTy), NO_ARGS, NO_ATTRS, EFFECT(RuntimeEffect::ObjectiveC),
 diff --git a/lib/IRGen/GenObjC.cpp b/lib/IRGen/GenObjC.cpp
-index 85df58f9797..bdbaa9fdd0c 100644
+index 85df58f9797..af44210962f 100644
 --- a/lib/IRGen/GenObjC.cpp
 +++ b/lib/IRGen/GenObjC.cpp
 @@ -794,16 +794,21 @@ Callee irgen::getObjCMethodCallee(IRGenFunction &IGF,
@@ -82,8 +82,8 @@ index 85df58f9797..bdbaa9fdd0c 100644
 +    }();
 +    llvm::Value *imp =
 +        IGF.Builder.CreateCall(lookup, {receiverValue, selectorValue});
-+    auto impFn = FunctionPointer(FunctionPointer::Kind::Function, imp,
-+                                 PointerAuthInfo(), sig);
++    auto impFn = FunctionPointer::createUnsigned(
++        FunctionPointer::Kind::Function, imp, sig, /*useSignature*/ true);
 +    // The IMP takes the receiver itself, even for super sends.
 +    return Callee(std::move(info), impFn, selfValue, selectorValue);
 +  }

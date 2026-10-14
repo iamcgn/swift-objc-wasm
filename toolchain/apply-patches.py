@@ -308,8 +308,8 @@ patch("swift/lib/IRGen/GenObjC.cpp", [
     }();
     llvm::Value *imp =
         IGF.Builder.CreateCall(lookup, {receiverValue, selectorValue});
-    auto impFn = FunctionPointer(FunctionPointer::Kind::Function, imp,
-                                 PointerAuthInfo(), sig);
+    auto impFn = FunctionPointer::createUnsigned(
+        FunctionPointer::Kind::Function, imp, sig, /*useSignature*/ true);
     // The IMP takes the receiver itself, even for super sends.
     return Callee(std::move(info), impFn, selfValue, selectorValue);
   }
