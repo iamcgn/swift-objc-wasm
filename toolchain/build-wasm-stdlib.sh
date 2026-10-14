@@ -13,7 +13,7 @@ export SWIFT_OBJC_WASM_RUNTIME=${SWIFT_OBJC_WASM_RUNTIME:-$HERE/runtime/build/in
 JOBS=${JOBS:-6}
 cd "$SWIFT_SOURCE"
 exec ./swift/utils/build-script --release --assertions --build-subdir objc-wasm \
-  --skip-ios --skip-tvos --skip-watchos --skip-xros --skip-build-benchmarks \
+  --skip-ios --skip-tvos --skip-watchos --skip-xros --skip-build-osx --skip-build-benchmarks \
   --skip-test-swift --skip-test-cmark --skip-build-compiler-rt \
   --build-swift-dynamic-stdlib=0 --build-swift-dynamic-sdk-overlay=0 \
   --build-swift-static-stdlib=0 --build-swift-static-sdk-overlay=0 \

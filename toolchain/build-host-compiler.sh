@@ -11,7 +11,7 @@ MACOS_SDK=${MACOS_SDK:-/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk}
 export SWIFT_BUILD_MACOS_SYSROOT="$MACOS_SDK"
 cd "$SWIFT_SOURCE"
 exec ./swift/utils/build-script --release --assertions --build-subdir objc-wasm \
-  --skip-ios --skip-tvos --skip-watchos --skip-xros --skip-build-benchmarks \
+  --skip-ios --skip-tvos --skip-watchos --skip-xros --skip-build-osx --skip-build-benchmarks \
   --skip-test-swift --skip-test-cmark --skip-build-compiler-rt --build-swift-libexec=0 --reconfigure \
   --build-swift-dynamic-stdlib=0 --build-swift-dynamic-sdk-overlay=0 \
   --build-swift-static-stdlib=0 --build-swift-static-sdk-overlay=0 \
