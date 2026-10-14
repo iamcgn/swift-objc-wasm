@@ -1,0 +1,271 @@
+diff --git a/clang/lib/CodeGen/CGObjCMac.cpp b/clang/lib/CodeGen/CGObjCMac.cpp
+index 481954438717..04517d0564ee 100644
+--- a/clang/lib/CodeGen/CGObjCMac.cpp
++++ b/clang/lib/CodeGen/CGObjCMac.cpp
+@@ -123,6 +123,22 @@ private:
+         "objc_msgSendSuper");
+   }
+ 
++  /// IMP objc_msgLookup(id, SEL) and IMP objc_msgLookupSuper2(struct objc_super *, SEL)
++  ///
++  /// libobjc-wasm: WebAssembly type-checks indirect calls, so a universal
++  /// messenger cannot exist; the IMP is looked up and called directly.
++  llvm::FunctionCallee getMessageLookupFn() const {
++    llvm::Type *params[] = {ObjectPtrTy, SelectorPtrTy};
++    return CGM.CreateRuntimeFunction(
++        llvm::FunctionType::get(Int8PtrTy, params, false), "objc_msgLookup");
++  }
++  llvm::FunctionCallee getMessageLookupSuperFn2() const {
++    llvm::Type *params[] = {SuperPtrTy, SelectorPtrTy};
++    return CGM.CreateRuntimeFunction(
++        llvm::FunctionType::get(Int8PtrTy, params, false),
++        "objc_msgLookupSuper2");
++  }
++
+   /// id objc_msgSendSuper2(struct objc_super *super, SEL op, ...)
+   ///
+   /// A slightly different messenger used for super calls.  The class
+@@ -2080,8 +2096,17 @@ CodeGen::RValue CGObjCCommonMac::EmitMessageSend(
+   bool RequiresNullCheck = false;
+   bool RequiresSelValue = true;
+ 
++  // libobjc-wasm: on WebAssembly the messenger is replaced by a method lookup
++  // followed by a direct call with the message's own signature. A nil receiver
++  // must then be skipped before the call, whatever the return type.
++  const bool UseMsgLookup = CGM.getTriple().isOSBinFormatWasm() &&
++                            !(Method && Method->isDirectMethod());
++
+   llvm::FunctionCallee Fn = nullptr;
+-  if (Method && Method->isDirectMethod()) {
++  if (UseMsgLookup) {
++    if (ReceiverCanBeNull)
++      RequiresNullCheck = true;
++  } else if (Method && Method->isDirectMethod()) {
+     assert(!IsSuper);
+     Fn = GenerateDirectMethod(Method, Method->getClassInterface());
+     // Direct methods will synthesize the proper `_cmd` internally,
+@@ -2108,12 +2133,14 @@ CodeGen::RValue CGObjCCommonMac::EmitMessageSend(
+   }
+ 
+   // Cast function to proper signature
+-  llvm::Constant *BitcastFn = cast<llvm::Constant>(
+-      CGF.Builder.CreateBitCast(Fn.getCallee(), MSI.MessengerType));
++  llvm::Constant *BitcastFn =
++      UseMsgLookup ? nullptr
++                   : cast<llvm::Constant>(CGF.Builder.CreateBitCast(
++                         Fn.getCallee(), MSI.MessengerType));
+ 
+   // We don't need to emit a null check to zero out an indirect result if the
+-  // result is ignored.
+-  if (Return.isUnused())
++  // result is ignored. (Not on WebAssembly: the call itself must be skipped.)
++  if (Return.isUnused() && !UseMsgLookup)
+     RequiresNullCheck = false;
+ 
+   // Emit a null-check if there's a consumed argument other than the receiver.
+@@ -2132,7 +2159,17 @@ CodeGen::RValue CGObjCCommonMac::EmitMessageSend(
+   }
+ 
+   llvm::CallBase *CallSite;
+-  CGCallee Callee = CGCallee::forDirect(BitcastFn);
++  CGCallee Callee;
++  if (UseMsgLookup) {
++    llvm::Value *LookupArgs[] = {Arg0, SelValue};
++    llvm::Value *Imp = CGF.EmitNounwindRuntimeCall(
++        IsSuper ? ObjCTypes.getMessageLookupSuperFn2()
++                : ObjCTypes.getMessageLookupFn(),
++        LookupArgs);
++    Callee = CGCallee(CGCalleeInfo(), Imp, CGPointerAuthInfo());
++  } else {
++    Callee = CGCallee::forDirect(BitcastFn);
++  }
+   RValue rvalue =
+       CGF.EmitCall(MSI.CallInfo, Callee, Return, ActualArgs, &CallSite);
+ 
+@@ -2146,6 +2183,17 @@ CodeGen::RValue CGObjCCommonMac::EmitMessageSend(
+                              RequiresNullCheck ? Method : nullptr);
+ }
+ 
++/// libobjc-wasm: wasm-ld only keeps data segments of globals in llvm.used, so
++/// Objective-C metadata that the runtime discovers through section bounds is
++/// marked used rather than compiler-used on WebAssembly.
++static void addCompilerUsedOrRetainedGlobal(CodeGen::CodeGenModule &CGM,
++                                            llvm::GlobalValue *GV) {
++  if (CGM.getTriple().isOSBinFormatWasm())
++    CGM.addUsedGlobal(GV);
++  else
++    CGM.addCompilerUsedGlobal(GV);
++}
++
+ static Qualifiers::GC GetGCAttrTypeForType(ASTContext &Ctx, QualType FQT,
+                                            bool pointee = false) {
+   // Note that GC qualification applies recursively to C pointer types
+@@ -2979,7 +3027,7 @@ llvm::Constant *CGObjCMac::GetOrEmitProtocol(const ObjCProtocolDecl *PD) {
+ 
+     Protocols[PD->getIdentifier()] = Entry;
+   }
+-  CGM.addCompilerUsedGlobal(Entry);
++  addCompilerUsedOrRetainedGlobal(CGM, Entry);
+ 
+   return Entry;
+ }
+@@ -3505,7 +3553,7 @@ void CGObjCMac::GenerateClass(const ObjCImplementationDecl *ID) {
+     values.finishAndSetAsInitializer(GV);
+     GV->setSection(Section);
+     GV->setAlignment(CGM.getPointerAlign().getAsAlign());
+-    CGM.addCompilerUsedGlobal(GV);
++    addCompilerUsedOrRetainedGlobal(CGM, GV);
+   } else
+     GV = CreateMetadataVar(Name, values, Section, CGM.getPointerAlign(), true);
+   DefinedClasses.push_back(GV);
+@@ -3571,7 +3619,7 @@ CGObjCMac::EmitMetaClass(const ObjCImplementationDecl *ID,
+                                       llvm::GlobalValue::PrivateLinkage);
+   }
+   GV->setSection("__OBJC,__meta_class,regular,no_dead_strip");
+-  CGM.addCompilerUsedGlobal(GV);
++  addCompilerUsedOrRetainedGlobal(CGM, GV);
+ 
+   return GV;
+ }
+@@ -4023,7 +4071,7 @@ CGObjCCommonMac::CreateMetadataVar(Twine Name, ConstantStructBuilder &Init,
+   if (!Section.empty())
+     GV->setSection(Section);
+   if (AddToUsed)
+-    CGM.addCompilerUsedGlobal(GV);
++    addCompilerUsedOrRetainedGlobal(CGM, GV);
+   return GV;
+ }
+ 
+@@ -4041,7 +4089,7 @@ llvm::GlobalVariable *CGObjCCommonMac::CreateMetadataVar(Twine Name,
+     GV->setSection(Section);
+   GV->setAlignment(Align.getAsAlign());
+   if (AddToUsed)
+-    CGM.addCompilerUsedGlobal(GV);
++    addCompilerUsedOrRetainedGlobal(CGM, GV);
+   return GV;
+ }
+ 
+@@ -4096,7 +4144,7 @@ CGObjCCommonMac::CreateCStringLiteral(StringRef Name, ObjCLabelType Type,
+     GV->setSection(Section);
+   GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+   GV->setAlignment(CharUnits::One().getAsAlign());
+-  CGM.addCompilerUsedGlobal(GV);
++  addCompilerUsedOrRetainedGlobal(CGM, GV);
+ 
+   return GV;
+ }
+@@ -4960,12 +5008,12 @@ std::string CGObjCCommonMac::GetSectionName(StringRef Section,
+     return ("__DATA," + Section + "," + MachOAttributes).str();
+   }
+   case llvm::Triple::ELF:
++  case llvm::Triple::Wasm: // libobjc-wasm: wasm-ld synthesizes __start_/__stop_
+     assert(Section.starts_with("__") && "expected the name to begin with __");
+     return Section.substr(2).str();
+   case llvm::Triple::COFF:
+     assert(Section.starts_with("__") && "expected the name to begin with __");
+     return ("." + Section.substr(2) + "$B").str();
+-  case llvm::Triple::Wasm:
+   case llvm::Triple::GOFF:
+   case llvm::Triple::SPIRV:
+   case llvm::Triple::XCOFF:
+@@ -5603,7 +5651,7 @@ void CGObjCMac::FinishModule() {
+     values.addNullPointer(ObjCTypes.MethodDescriptionListPtrTy);
+     values.addNullPointer(ObjCTypes.MethodDescriptionListPtrTy);
+     values.finishAndSetAsInitializer(global);
+-    CGM.addCompilerUsedGlobal(global);
++    addCompilerUsedOrRetainedGlobal(CGM, global);
+   }
+ 
+   // Add assembler directives to add lazy undefined symbol references
+@@ -6094,7 +6142,7 @@ void CGObjCNonFragileABIMac::AddModuleClassList(
+       llvm::GlobalValue::PrivateLinkage, Init, SymbolName);
+   GV->setAlignment(CGM.getDataLayout().getABITypeAlign(Init->getType()));
+   GV->setSection(SectionName);
+-  CGM.addCompilerUsedGlobal(GV);
++  addCompilerUsedOrRetainedGlobal(CGM, GV);
+ }
+ 
+ void CGObjCNonFragileABIMac::FinishNonFragileABIModule() {
+@@ -6143,6 +6191,10 @@ void CGObjCNonFragileABIMac::FinishNonFragileABIModule() {
+ /// except for the 19 selectors in the list, we generate 32bit-style
+ /// message dispatch call for all the rest.
+ bool CGObjCNonFragileABIMac::isVTableDispatchedSelector(Selector Sel) {
++  // libobjc-wasm: there are no objc_msgSend_fixup trampolines.
++  if (CGM.getTriple().isOSBinFormatWasm())
++    return false;
++
+   // At various points we've experimented with using vtable-based
+   // dispatch for all methods.
+   switch (CGM.getCodeGenOpts().getObjCDispatchMethod()) {
+@@ -6659,7 +6711,7 @@ void CGObjCNonFragileABIMac::GenerateCategory(const ObjCCategoryImplDecl *OCD) {
+ 
+   llvm::GlobalVariable *GCATV =
+       finishAndCreateGlobal(values, ExtCatName.str(), CGM);
+-  CGM.addCompilerUsedGlobal(GCATV);
++  addCompilerUsedOrRetainedGlobal(CGM, GCATV);
+   if (Interface->hasAttr<ObjCClassStubAttr>())
+     DefinedStubCategories.push_back(GCATV);
+   else
+@@ -6774,7 +6826,7 @@ llvm::Constant *CGObjCNonFragileABIMac::emitMethodList(
+   methodArray.finishAndAddTo(values);
+ 
+   llvm::GlobalVariable *GV = finishAndCreateGlobal(values, prefix + name, CGM);
+-  CGM.addCompilerUsedGlobal(GV);
++  addCompilerUsedOrRetainedGlobal(CGM, GV);
+   return GV;
+ }
+ 
+@@ -6918,7 +6970,7 @@ CGObjCNonFragileABIMac::EmitIvarList(const ObjCImplementationDecl *ID) {
+   const char *Prefix = "_OBJC_$_INSTANCE_VARIABLES_";
+   llvm::GlobalVariable *GV = finishAndCreateGlobal(
+       ivarList, Prefix + OID->getObjCRuntimeNameAsString(), CGM);
+-  CGM.addCompilerUsedGlobal(GV);
++  addCompilerUsedOrRetainedGlobal(CGM, GV);
+   return GV;
+ }
+ 
+@@ -7105,7 +7157,7 @@ llvm::Constant *CGObjCNonFragileABIMac::EmitProtocolList(
+   values.fillPlaceholderWithInt(countSlot, ObjCTypes.LongTy, count);
+ 
+   GV = finishAndCreateGlobal(values, Name, CGM);
+-  CGM.addCompilerUsedGlobal(GV);
++  addCompilerUsedOrRetainedGlobal(CGM, GV);
+   return GV;
+ }
+ 
+@@ -7396,7 +7448,7 @@ llvm::Value *CGObjCNonFragileABIMac::EmitClassRefFromId(
+     if (!ID || !ID->hasAttr<ObjCClassStubAttr>())
+       Entry->setSection(SectionName);
+ 
+-    CGM.addCompilerUsedGlobal(Entry);
++    addCompilerUsedOrRetainedGlobal(CGM, Entry);
+   }
+ 
+   return EmitLoadOfClassRef(CGF, ID, Entry);
+@@ -7432,7 +7484,7 @@ CGObjCNonFragileABIMac::EmitSuperClassRef(CodeGenFunction &CGF,
+                                      "OBJC_CLASSLIST_SUP_REFS_$_");
+     Entry->setAlignment(CGF.getPointerAlign().getAsAlign());
+     Entry->setSection(SectionName);
+-    CGM.addCompilerUsedGlobal(Entry);
++    addCompilerUsedOrRetainedGlobal(CGM, Entry);
+   }
+ 
+   return EmitLoadOfClassRef(CGF, ID, Entry);
+@@ -7454,7 +7506,7 @@ llvm::Value *CGObjCNonFragileABIMac::EmitMetaClassRef(
+                                      MetaClassGV, "OBJC_CLASSLIST_SUP_REFS_$_");
+     Entry->setAlignment(Align.getAsAlign());
+     Entry->setSection(SectionName);
+-    CGM.addCompilerUsedGlobal(Entry);
++    addCompilerUsedOrRetainedGlobal(CGM, Entry);
+   }
+ 
+   return CGF.Builder.CreateAlignedLoad(ObjCTypes.ClassnfABIPtrTy, Entry, Align);
+@@ -7540,7 +7592,7 @@ ConstantAddress CGObjCNonFragileABIMac::EmitSelectorAddr(Selector Sel) {
+     Entry->setExternallyInitialized(true);
+     Entry->setSection(SectionName);
+     Entry->setAlignment(Align.getAsAlign());
+-    CGM.addCompilerUsedGlobal(Entry);
++    addCompilerUsedOrRetainedGlobal(CGM, Entry);
+   }
+ 
+   return ConstantAddress(Entry, ObjCTypes.SelectorPtrTy, Align);
