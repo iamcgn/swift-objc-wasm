@@ -186,7 +186,11 @@ OBJC_EXPORT void objc_setForwardHandler(void * _Nonnull fwd, void * _Nonnull fwd
 
 /* Associative References */
 
+#if __cplusplus
+enum objc_AssociationPolicy : uintptr_t {
+#else
 typedef OBJC_ENUM(uintptr_t, objc_AssociationPolicy) {
+#endif
     OBJC_ASSOCIATION_ASSIGN = 0,
     OBJC_ASSOCIATION_RETAIN_NONATOMIC = 1,
     OBJC_ASSOCIATION_COPY_NONATOMIC = 3,
