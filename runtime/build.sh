@@ -23,14 +23,21 @@ for f in "$HERE"/src/*.c; do
   "$CLANG" "${CFLAGS_COMMON[@]}" -std=c11 -c "$f" -o "$o"
   objs+=("$o")
 done
+# Blocks runtime (from swift-corelibs-blocksruntime), with weak exports so that a
+# CoreFoundation that also carries one does not clash at link time.
+for f in "$HERE"/src/blocks/*.c; do
+  o="$OUT/obj/blocks_$(basename "${f%.c}").o"
+  "$CLANG" "${CFLAGS_COMMON[@]}" -std=gnu11 -Wno-unused-variable -Wno-cast-function-type-mismatch \
+    '-DBLOCK_EXPORT=extern __attribute__((weak, visibility("default")))' -c "$f" -o "$o"
+  objs+=("$o")
+done
+# Foundation-lite C parts always; Objective-C parts need the patched clang.
+"$CLANG" "${CFLAGS_COMMON[@]}" -std=c11 -c "$HERE/src/foundation-lite/CFLite.c" -o "$OUT/obj/CFLite.o"
+objs+=("$OUT/obj/CFLite.o")
 if [[ "$WITH_OBJC" == 1 ]]; then
-  for f in "$HERE"/src/foundation-lite/*.m "$HERE"/src/blocks/*.c; do
-    [[ -e "$f" ]] || continue
-    o="$OUT/obj/$(basename "${f%.*}").o"
-    case "$f" in
-      *.m) "$CLANG" "${CFLAGS_COMMON[@]}" -fobjc-runtime=ios-7.0 -fno-objc-arc -c "$f" -o "$o";;
-      *.c) "$CLANG" "${CFLAGS_COMMON[@]}" -std=c11 -c "$f" -o "$o";;
-    esac
+  for f in "$HERE"/src/foundation-lite/*.m; do
+    o="$OUT/obj/$(basename "${f%.m}").o"
+    "$CLANG" "${CFLAGS_COMMON[@]}" -fobjc-runtime=ios-7.0 -fno-objc-arc -c "$f" -o "$o"
     objs+=("$o")
   done
 fi
