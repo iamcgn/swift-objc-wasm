@@ -26,6 +26,27 @@ index b5fb75228b8..12178b2a6a3 100644
  FUNCTION(ObjCMsgSend, objc2, objc_msgSend,
           C_CC, AlwaysAvailable,
           RETURNS(VoidTy), NO_ARGS, NO_ATTRS, EFFECT(RuntimeEffect::ObjectiveC),
+diff --git a/lib/IRGen/GenKeyPath.cpp b/lib/IRGen/GenKeyPath.cpp
+index ce65f64c0d2..4d81e7379ea 100644
+--- a/lib/IRGen/GenKeyPath.cpp
++++ b/lib/IRGen/GenKeyPath.cpp
+@@ -860,7 +860,15 @@ emitKeyPathComponent(IRGenModule &IGM,
+       // Foreign method refs identify using a selector
+       // reference, which is doubly-indirected and filled in with a unique
+       // pointer by dyld.
+-      if (declRef.isForeign) {
++      if (declRef.isForeign && IGM.getOptions().CompactAbsoluteFunctionPointer) {
++        // libobjc-wasm: WebAssembly cannot store a relative reference to a
++        // function in data. Refer to the selector reference slot instead; the
++        // runtime loads the uniqued selector through it at instantiation time.
++        assert(IGM.ObjCInterop && "foreign keypath component w/o objc interop?!");
++        idKind = KeyPathComponentHeader::Pointer;
++        idValue = IGM.getAddrOfObjCSelectorRef(declRef);
++        idResolution = KeyPathComponentHeader::IndirectPointer;
++      } else if (declRef.isForeign) {
+         assert(IGM.ObjCInterop && "foreign keypath component w/o objc interop?!");
+         idKind = KeyPathComponentHeader::Pointer;
+         // FIXME: In non-JIT mode, ideally we would just refer to the selector
 diff --git a/lib/IRGen/GenObjC.cpp b/lib/IRGen/GenObjC.cpp
 index 85df58f9797..af44210962f 100644
 --- a/lib/IRGen/GenObjC.cpp
