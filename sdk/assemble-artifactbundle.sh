@@ -1,43 +1,75 @@
 #!/usr/bin/env bash
 # Assemble the swift-6.3.3-RELEASE_wasm-objc Swift SDK artifactbundle from:
 #   - the stock swift-6.3.3-RELEASE_wasm bundle (WASI.sdk, clang resource dir, layout)
-#   - the wasm stdlib built with interop (STDLIB_INSTALL: .../usr/lib/swift_static)
+#   - the wasm stdlib built with interop (STDLIB_INSTALL: a swift_static dir)
+#   - FoundationEssentials & co. from the SDK-stage build dir (FOUNDATION_BUILD), if present
 #   - libobjc-wasm (OBJC_INSTALL: lib/libobjc.a + include/objc, include/Block)
-#   - the patched host tools (HOST_BUILD: build/objc-wasm)
+#   - the staged host toolchain (STAGED: toolchain-macosx-arm64/usr from stage-toolchain.sh)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 VERSION=${VERSION:-6.3.3}
 STOCK=${STOCK:-$HOME/.swiftpm/swift-sdks/swift-${VERSION}-RELEASE_wasm.artifactbundle}
 OUT=${OUT:-$HERE/build/swift-${VERSION}-RELEASE_wasm-objc.artifactbundle}
-STDLIB_INSTALL=${STDLIB_INSTALL:?path to the interop stdlib install's swift_static dir}
+BUILD_ROOT=${BUILD_ROOT:-$HOME/Development/swift-source/build/objc-wasm}
+STDLIB_INSTALL=${STDLIB_INSTALL:-$BUILD_ROOT/wasmswiftsdk-macosx-arm64/Toolchains/wasm32-unknown-wasip1/usr/lib/swift_static}
+FOUNDATION_BUILD=${FOUNDATION_BUILD:-$BUILD_ROOT/wasmswiftsdk-macosx-arm64/foundation/wasm32-unknown-wasip1}
 OBJC_INSTALL=${OBJC_INSTALL:-$HERE/runtime/build/install}
-HOST_BUILD=${HOST_BUILD:-$HOME/Development/swift-source/build/objc-wasm}
-STOCK_TOOLCHAIN=${STOCK_TOOLCHAIN:-$HOME/Library/Developer/Toolchains/swift-${VERSION}-RELEASE.xctoolchain}
+STAGED=${STAGED:-$BUILD_ROOT/toolchain-macosx-arm64/usr}
 NAME="swift-${VERSION}-RELEASE_wasm-objc"
+STOCK_T="$STOCK/swift-${VERSION}-RELEASE_wasm/wasm32-unknown-wasip1"
 T="$OUT/$NAME/wasm32-unknown-wasip1"
+WASI_LIB="$T/swift.xctoolchain/usr/lib/swift_static/wasi"
 
-rm -rf "$OUT" && mkdir -p "$T"
-cp -R "$STOCK/swift-${VERSION}-RELEASE_wasm/wasm32-unknown-wasip1/WASI.sdk" "$T/"
-mkdir -p "$T/swift.xctoolchain/usr/lib" "$T/swift.xctoolchain/usr/bin"
-cp -R "$STOCK/swift-${VERSION}-RELEASE_wasm/wasm32-unknown-wasip1/swift.xctoolchain/usr/lib/swift_static" "$T/swift.xctoolchain/usr/lib/"
-# Replace the WASI stdlib with the interop build.
-rm -rf "$T/swift.xctoolchain/usr/lib/swift_static/wasi"
-cp -R "$STDLIB_INSTALL/wasi" "$T/swift.xctoolchain/usr/lib/swift_static/"
-cp -R "$STDLIB_INSTALL/shims" "$T/swift.xctoolchain/usr/lib/swift_static/" 2>/dev/null || true
-# Objective-C runtime: headers next to the sysroot's includes, library on the link path.
+[[ -d "$STDLIB_INSTALL/wasi" ]] || { echo "no stdlib at $STDLIB_INSTALL"; exit 1; }
+[[ -f "$OBJC_INSTALL/lib/libobjc.a" ]] || { echo "no libobjc.a at $OBJC_INSTALL"; exit 1; }
+[[ -x "$STAGED/bin/swift-frontend" ]] || { echo "no staged toolchain at $STAGED"; exit 1; }
+
+rm -rf "$OUT" && mkdir -p "$T/swift.xctoolchain/usr/lib/swift"
+cp -R "$STOCK_T/WASI.sdk" "$T/"
+cp -R "$STOCK_T/swift.xctoolchain/usr/lib/swift_static" "$T/swift.xctoolchain/usr/lib/"
+
+# The WASI stdlib and shims from the interop build replace the stock ones. The stock
+# Foundation/XCTest/Testing libraries were built against the non-interop stdlib: drop them.
+rm -rf "$WASI_LIB" "$T/swift.xctoolchain/usr/lib/swift_static/shims"
+cp -R "$STDLIB_INSTALL/wasi" "$WASI_LIB"
+cp -R "$STDLIB_INSTALL/shims" "$T/swift.xctoolchain/usr/lib/swift_static/"
+
+# FoundationEssentials and its support libraries from the SDK-stage build.
+if [[ -d "$FOUNDATION_BUILD/lib" ]]; then
+  for name in FoundationEssentials FoundationInternationalization _FoundationCollections _FoundationCShims FoundationICU; do
+    mod=$(find "$FOUNDATION_BUILD" -maxdepth 4 -type d -name "$name.swiftmodule" | head -1)
+    [[ -n "$mod" ]] && { rm -rf "$WASI_LIB/$name.swiftmodule"; cp -R "$mod" "$WASI_LIB/"; }
+    lib=$(find "$FOUNDATION_BUILD" -maxdepth 4 -name "lib$name.a" | head -1)
+    [[ -n "$lib" ]] && cp "$lib" "$WASI_LIB/"
+  done
+fi
+
+# Objective-C runtime: headers in the sysroot, library on both link paths.
 cp -R "$OBJC_INSTALL/include/objc" "$OBJC_INSTALL/include/Block" "$T/WASI.sdk/include/"
-cp "$OBJC_INSTALL/lib/libobjc.a" "$T/swift.xctoolchain/usr/lib/swift_static/wasi/"
+cp "$OBJC_INSTALL/include/Block.h" "$T/WASI.sdk/include/"
+cp "$OBJC_INSTALL/lib/libobjc.a" "$WASI_LIB/"
 cp "$OBJC_INSTALL/lib/libobjc.a" "$T/WASI.sdk/lib/wasm32-wasip1/"
-# Host tools and compiler libraries: the staged toolchain from toolchain/stage-toolchain.sh.
-STAGED=${STAGED:-$HOME/Development/swift-source/build/objc-wasm/toolchain-macosx-arm64/usr}
+
+# Host tools and compiler libraries.
 cp -R "$STAGED/bin" "$T/swift.xctoolchain/usr/"
-mkdir -p "$T/swift.xctoolchain/usr/lib/swift"
 cp -R "$STAGED/lib/swift/host" "$T/swift.xctoolchain/usr/lib/swift/"
 cp -R "$STAGED/lib/clang" "$T/swift.xctoolchain/usr/lib/"
 ln -sfn "$(readlink "$STAGED/lib/swift/macosx")" "$T/swift.xctoolchain/usr/lib/swift/macosx"
+
 # Bundle metadata.
-printf '{\n  "artifacts": {\n    "%s": { "type": "swiftSDK", "version": "0.0.1",\n      "variants": [ { "path": "%s/wasm32-unknown-wasip1/swift-sdk.json" } ] }\n  },\n  "schemaVersion": "1.0"\n}\n' "$NAME" "$NAME" > "$OUT/info.json"
-cp "$STOCK/swift-${VERSION}-RELEASE_wasm/wasm32-unknown-wasip1/swift-sdk.json" "$T/"
+cat > "$OUT/info.json" <<JSON
+{
+  "artifacts": {
+    "$NAME": {
+      "type": "swiftSDK",
+      "version": "0.0.1",
+      "variants": [ { "path": "$NAME/wasm32-unknown-wasip1/swift-sdk.json" } ]
+    }
+  },
+  "schemaVersion": "1.0"
+}
+JSON
+cp "$STOCK_T/swift-sdk.json" "$T/"
 cp "$HERE/sdk/toolset.json" "$T/toolset.json"
 echo "assembled $OUT"
-echo "install with: swift sdk install $OUT"
+ls "$WASI_LIB" | tr '\n' ' '; echo
