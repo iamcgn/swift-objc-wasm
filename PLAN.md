@@ -171,3 +171,4 @@ Phase 0: 2–3 days · Phase 1: 4 · Phase 2: 10–15 · Phase 3: 5–8 · Phase
 2. **Route**: objc4-ABI runtime (above) rather than GNUstep libobjc2. Switching later is possible since Phase 0/1 clang work (section names) is shared.
 3. **Bridging**: `String`/`Array` bridging deferred to v1.5; acceptance app needs only `AnyObject?`.
 4. **SDK contents**: Foundation/XCTest/Testing dropped from the interop SDK in v1; the project's test suites keep running on the stock SDK.
+   Decided 2026-10-15: v1 ships neither corelibs Foundation nor CoreFoundation; v1.5 adds targeted bridging over Foundation-lite's `NSString` in WebFoundation; the eventual target is corelibs Foundation rebuilt with interop on (its own `NSObject` and bridging replaced by the runtime's), as a separate decision with its own budget.
