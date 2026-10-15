@@ -28,7 +28,7 @@ Why not GNUstep/libobjc2: needs a new GNUstep metadata emitter in Swift IRGen, t
 
 ## Deliverables and layout
 
-`/Users/iamcgn/Development/swift-objc-wasm` (new git repo):
+This repository (`swift-objc-wasm`):
 ```
 README.md
 runtime/                       libobjc-wasm (C + a few .m, CMake, tests on WasmKit)
@@ -144,6 +144,60 @@ Exit: `swift build --swift-sdk swift-6.3.3-RELEASE_wasm-objc` of a Foundation-fr
 - File swiftlang issues/PRs: clang `GetSectionName` Wasm + lookup dispatch + `llvm.used` lists (upstream merged GNUstep-on-wasm in Aug 2026, so there is appetite); Swift `GenObjC.cpp` wasm dispatch + `SwiftTargetInfo`; the stdlib build/runtime hygiene patches (`-DSWIFT_OBJC_INTEROP=1` explicit, `SWIFT_CLASS_IS_SWIFT_MASK`, `performSelector` via lookup, dlsym-free `FoundationHelpers`); the non-Darwin `ObjectiveC` overlay (hardest to land; keep in-tree). Report the `-typecheck` abort as the first bug, as decision 0021 asks.
 - Patches kept as `git format-patch` series against the release tag; `toolchain/rebase.sh` applies them to the next `swift-6.x-RELEASE` tag; GitHub Actions on a Linux host builds a Linux-host toolset for a second artifactbundle for the project's CI.
 
+## Phase 7 — Release on GitHub: licensing, attribution, publishing (3–4 days)
+
+The repo has no LICENSE, NOTICE or file headers yet. The inventory below is what a scan on
+2026-10-15 found (verbatim-line comparison against `apple-oss-distributions/objc4`, the
+swift-5.2-RELEASE overlay, swift-corelibs-libdispatch's BlocksRuntime and the macOS SDK's
+`objc/` headers). Nothing in it is a blocker; two items need a fix before the first push and
+one needs the user's decision.
+
+### 7.1 Provenance inventory
+
+| Component | Origin | Upstream license | State | Action |
+|---|---|---|---|---|
+| `runtime/src/*.c`, `internal.h`, `map.c`, `encoding.c`, `perform.c`, … | Written here | — | 0 verbatim lines from objc4 (3 trivial statements in `class.c`, 1 signature in `refcount.c`) | Our license + header |
+| `runtime/src/abi.h` | Written here; struct layouts are the objc4 ABI as clang/IRGen emit it (`objc-runtime-new.h`) | APSL 2.0 for objc4 | 7 of 63 lines coincide (field names) | Keep; name objc4 in NOTICE as the ABI reference |
+| `runtime/include/objc/*.h` | Written here following objc4's public API | APSL 2.0 for objc4 | API declarations and macros coincide where the API dictates them; **16 doc-comment lines are verbatim objc4 text** (`objc.h` 5, `runtime.h` 8, `message.h` 3) | **Rewrite the 16 comments** before publishing; keep declarations; NOTICE states the API follows objc4 and no objc4 implementation code is used |
+| `runtime/src/foundation-lite/NSObject.m`, `Protocol.m`, `NSConstantString.m`, `CFLite.c` | Written here; `NSObject.m` mirrors objc4's `NSObject.mm` method set | APSL 2.0 for objc4 | 10 of 90 lines coincide, all method signatures | Keep; same NOTICE statement |
+| `runtime/src/blocks/*`, `runtime/include/Block.h`, `runtime/include/Block/Block.h` | Byte-identical copies of `swift-corelibs-libdispatch/src/BlocksRuntime` (checkout `swift-6.3-DEVELOPMENT-SNAPSHOT-2026-06-07-a`) | Apache-2.0 with Runtime Library Exception, Apple headers intact | Compliant as is | Record origin and commit in THIRD_PARTY_NOTICES; never edit without a "modified" line |
+| `runtime/overlay/ObjectiveC.swift` | Port of `stdlib/public/Darwin/ObjectiveC/ObjectiveC.swift` at swift-5.2-RELEASE; 31 of 35 substantive lines verbatim | Apache-2.0 with Runtime Library Exception | **Apple's copyright/license header was dropped** | **Restore the Apple header** and add a "modified for libobjc-wasm" line; same for `runtime/overlay/CMakeLists.txt` (derived from the 5.2 CMakeLists) |
+| `runtime/docs/overlay/*-5.2.*` | Verbatim Apple files kept as reference | Apache-2.0 with RLE, headers intact | Compliant | Drop them and cite the tag instead (they are reproducible from git), or keep and list in THIRD_PARTY_NOTICES |
+| `patches/swift/*.patch`, `patches/llvm-project/*.patch`, `toolchain/apply-*.py` | Our hunks plus upstream context lines and embedded upstream snippets | swiftlang/swift: Apache-2.0 with RLE; swiftlang/llvm-project: Apache-2.0 WITH LLVM-exception | Derivative works of the upstream files | `patches/README.md`: base tags, upstream licenses, and that our hunks are offered under the upstream license of each tree (needed for Phase 6 upstreaming anyway) |
+| `runtime/include/_stdlib_shims/*` | Written here; declare Apple API names (`CFBase` types, `TargetConditionals` macros) only | — | Original | Our license + header |
+| `tests/`, `sdk/`, `toolchain/*.sh`, `runtime/docs/abi.m`, `swiftmeta.swift`, `README.md`, `PLAN.md` | Written here | — | Original; `PLAN.md` carries one personal absolute path | Our license; make the path relative |
+| SDK artifactbundle (release asset, 2.3 GB uncompressed) | Redistributes: Swift toolchain binaries and stdlib (Apache-2.0 with RLE), clang/lld and compiler-rt builtins (Apache-2.0 WITH LLVM-exception), wasi-libc (Apache-2.0 WITH LLVM-exception / Apache-2.0 / MIT, at the user's choice), libc++ and libc++abi (Apache-2.0 WITH LLVM-exception), swift-foundation (Apache-2.0), swift-foundation-icu (Unicode-3.0 / ICU), swift-collections (Apache-2.0), swift-syntax macro plugins (Apache-2.0 with RLE), plus libobjc-wasm and the overlay | as listed | The stock swift.org bundle ships no license files; ours should | `LICENSE.txt` and `THIRD_PARTY_NOTICES.md` at the bundle root, with the license texts that require reproduction (Apache-2.0, LLVM exception, Unicode/ICU, MIT) |
+
+No binaries or build outputs are in git history (largest blob 41 KB). No secrets or emails are in tracked files. The swiftui-web branch (25 files vs `main`, unmerged) adds nothing copied from third parties; its existing `LICENSE`/`NOTICE` need no change.
+
+### 7.2 Decisions for the user (defaults in bold)
+
+5. **Repo license: Apache-2.0 with the Swift Runtime Library Exception** (the swift.org `LICENSE.txt` form, SPDX `Apache-2.0 WITH Swift-exception`). `libobjc.a` and the overlay are statically linked into every consumer's app; plain Apache-2.0 would oblige every app to carry our NOTICE, which is what the exception exists to waive. It also matches every Apache file we carry, so the repo stays single-license apart from upstream notices. Alternative: MIT for original files (simpler text, but the repo is mixed-license anyway and consumers lose the exception's clarity).
+6. **objc4 header text: rewrite the 16 verbatim comments** rather than placing `objc.h`, `runtime.h` and `message.h` under APSL 2.0. APSL would bring its modification and deployment duties into three headers that every consumer includes, and APSL is not GPL-compatible. Declarations stay: they are the API, and reproducing an API's declarations for compatibility is the position every alternative runtime takes.
+7. **Copyright line**: "Copyright 2026 <holder> and the swift-objc-wasm contributors" — the user's name or handle is needed.
+8. **Reference copies under `runtime/docs/overlay/`: drop** (cite the tag).
+9. **Release form: source tag plus the artifactbundle as a release asset**, macOS arm64 host only for now (Phase 6's Linux-host toolset remains a CI follow-up). GitHub caps an asset at 2 GiB: the bundle must be compressed (`tar.gz`, as `swift sdk install` expects) and, if still over, host binaries stripped; measure before tagging. Alternative: source only at first, consumers build with the scripts (2–4 h).
+
+### 7.3 Steps, in order
+
+1. **License files** at the repo root: `LICENSE.txt` (Apache-2.0 text + the Runtime Library Exception, verbatim from swift.org), `NOTICE.txt` (project name, copyright line, one paragraph on objc4 as the ABI/API reference with no objc4 code, the trademark line: Apple, Objective-C, Swift are Apple trademarks; not affiliated with or endorsed by Apple), `THIRD_PARTY_NOTICES.md` (every row above with URL, tag or commit, license, and the license texts).
+2. **Fix the two defects**: restore Apple's header on `runtime/overlay/ObjectiveC.swift` and `CMakeLists.txt` with a modification line; rewrite the 16 objc4 doc comments (`objc.h`, `runtime.h`, `message.h`). Rerun the verbatim-line scan afterwards and keep it as `tests/provenance-check.sh` (clones objc4 shallow into a scratch dir for comparison only; objc4 is never vendored).
+3. **File headers**: 67 of 74 original source files have none. Add a two-line header (`// swift-objc-wasm` / `// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception`) to every original `.c/.h/.m/.swift/.py/.sh/.cmake/CMakeLists.txt`; leave the BlocksRuntime copies untouched.
+4. **`patches/README.md`**: base tags (`swift-6.3.3-RELEASE` of both trees), what each patch does, upstream license per tree, and that the hunks are offered under those licenses (Swift and LLVM accept contributions under their own license without a CLA, which Phase 6 relies on).
+5. **Scrub**: `PLAN.md` path to relative; `git grep` for `/Users/`, emails, tokens (clean today); decide whether the `Claude-Session` commit trailers may go public (they are private links; harmless, but the history is rewritten now or never).
+6. **README for strangers**: prerequisites (macOS arm64, Xcode CLT with the macOS 26 SDK, swiftly 6.3.3, ninja, 16 GB, ~60 GB disk), build time, the exact checkout tag, the status table and limits, how to verify (`runtime/tests/run.sh`, `tests/e2e/run.sh`, `tests/compiler-checks.sh`), where to report problems, link to swiftui-web's decision 0023 for the consumer side.
+7. **Clean-commit verification** on the commit to be tagged: runtime tests, e2e, compiler checks, and the swiftui-web hash/probe chain against a bundle assembled from that commit. Record the outcomes in README as done for the acceptance rerun.
+8. **Publish the source**: `gh repo create iamcgn/swift-objc-wasm --public` with description and topics (swift, objective-c, webassembly, wasi, objc-runtime), push `main`, tag `v0.1.0`. Enable issues; no CI yet.
+9. **Publish the SDK asset**: assemble the bundle from the tagged commit, add `LICENSE.txt` + `THIRD_PARTY_NOTICES.md` + a `VERSION` file (tag, commit, patch-series sha256) at the bundle root, `tar.gz`, `shasum -a 256`, `gh release create v0.1.0` with notes (what works, limits, host requirements). README gets `swift sdk install <asset url> --checksum <sha256>`.
+10. **Consumer side (swiftui-web)**: after the asset exists, decision 0023 drops "the SDK is local"; add the CI step pinned to the release URL and checksum; merge `objc-runtime-wasm` by PR. These are the steps the acceptance phase deliberately left undone and need the user's go-ahead at that point.
+11. **Phase 6 upstream filings** reference the public repo and tag.
+
+### 7.4 Done when
+
+- `LICENSE.txt`, `NOTICE.txt`, `THIRD_PARTY_NOTICES.md` exist; every original file carries the SPDX header; every third-party file carries its original header; the provenance scan reports 0 verbatim objc4 comment lines.
+- The public repo and `v0.1.0` tag exist, the release asset installs with `swift sdk install … --checksum` on a second machine, and `tests/e2e/run.sh` passes against it.
+- README states what was verified on the tagged commit.
+
 ## Hardest risks and mitigations
 
 | Risk | Mitigation |
@@ -163,9 +217,9 @@ Exit: `swift build --swift-sdk swift-6.3.3-RELEASE_wasm-objc` of a Foundation-fr
 
 ## Effort
 
-Phase 0: 2–3 days · Phase 1: 4 · Phase 2: 10–15 · Phase 3: 5–8 · Phase 4: 3 · Phase 5: 4–6 · Phase 6: 2–3 + ongoing. Total ≈ 30–42 engineer-days; Phases 1 and 2 overlap once the clang patch lands.
+Phase 0: 2–3 days · Phase 1: 4 · Phase 2: 10–15 · Phase 3: 5–8 · Phase 4: 3 · Phase 5: 4–6 · Phase 6: 2–3 + ongoing · Phase 7: 3–4. Total ≈ 33–46 engineer-days; Phases 1 and 2 overlap once the clang patch lands.
 
-## Open decisions (defaults assumed unless changed)
+## Open decisions (defaults assumed unless changed; 5–9 are in Phase 7.2)
 
 1. **Build location**: host compiler built on this Mac (needed anyway for the macOS toolset); Linux-host variant deferred to CI.
 2. **Route**: objc4-ABI runtime (above) rather than GNUstep libobjc2. Switching later is possible since Phase 0/1 clang work (section names) is shared.
