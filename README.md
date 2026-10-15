@@ -50,8 +50,9 @@ Verified on the same date, with the commands under Verify below:
 | `tests/compiler-checks.sh`: patched compilers emit the same IR as the stock toolchain with interop off (`llvm-diff`, `-O` and `-Onone`) | identical |
 | `tests/compiler-checks.sh`: Darwin `swift/test/IRGen/objc_*` lit with the patched frontend | 60 passed, 1 expected failure, 25 unsupported on macOS arm64 |
 | `tests/provenance-check.sh` | 0 verbatim objc4 comment lines |
+| swiftui-web (branch `objc-runtime-wasm` at fbb333cf): SwiftUI-2048 bundle built with the SDK assembled from commit 9b74613, the four upstream pins verified unchanged, `Playwright/2048-probe.mjs` three consecutive runs | bundle and pins OK; 3/3 `full_app_pass` (launch, swipes, ⌘N) |
 
-The shipped `libswiftCore.a` defines `OBJC_CLASS_$__TtCs12_SwiftObject` and its metaclass.
+The bundle's `ObjectiveC` overlay binary was compiled before the overlay source gained its restored license header (a comment-only change); the next stdlib build picks it up. The shipped `libswiftCore.a` defines `OBJC_CLASS_$__TtCs12_SwiftObject` and its metaclass.
 The `Swift.swiftinterface` flag line carries `-disable-objc-interop` (from the stdlib's
 CMake) before this project's `-enable-objc-interop`; the last one wins.
 

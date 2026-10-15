@@ -178,7 +178,7 @@ No binaries or build outputs are in git history (largest blob 41 KB). No secrets
 8. **Reference copies under `runtime/docs/overlay/`: drop** (cite the tag).
 9. **Release form: source tag plus the artifactbundle as a release asset**, macOS arm64 host only for now (Phase 6's Linux-host toolset remains a CI follow-up). GitHub caps an asset at 2 GiB: the bundle must be compressed (`tar.gz`, as `swift sdk install` expects) and, if still over, host binaries stripped; measure before tagging. Alternative: source only at first, consumers build with the scripts (2–4 h).
 
-### 7.3 Steps, in order
+### 7.3 Steps, in order (1–7 done 2026-10-15, commit 9b74613 and the verification after it; 8–11 await the go-ahead)
 
 1. **License files** at the repo root: `LICENSE.txt` (Apache-2.0 text + the Runtime Library Exception, verbatim from swift.org), `NOTICE.txt` (project name, copyright line, one paragraph on objc4 as the ABI/API reference with no objc4 code, the trademark line: Apple, Objective-C, Swift are Apple trademarks; not affiliated with or endorsed by Apple), `THIRD_PARTY_NOTICES.md` (every row above with URL, tag or commit, license, and the license texts).
 2. **Fix the two defects**: restore Apple's header on `runtime/overlay/ObjectiveC.swift` and `CMakeLists.txt` with a modification line; rewrite the 16 objc4 doc comments (`objc.h`, `runtime.h`, `message.h`). Rerun the verbatim-line scan afterwards and keep it as `tests/provenance-check.sh` (clones objc4 shallow into a scratch dir for comparison only; objc4 is never vendored).
