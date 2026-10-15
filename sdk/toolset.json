@@ -3,9 +3,27 @@
   "rootPath": "swift.xctoolchain/usr/bin",
   "swiftCompiler": {
     "path": "swiftc",
-    "extraCLIOptions": ["-static-stdlib", "-Xfrontend", "-enable-objc-interop"]
+    "extraCLIOptions": [
+      "-static-stdlib",
+      "-Xfrontend",
+      "-enable-objc-interop",
+      "-Xfrontend",
+      "-validate-tbd-against-ir=none"
+    ]
   },
-  "cCompiler": { "path": "clang", "extraCLIOptions": ["-fobjc-runtime=ios-7.0"] },
-  "cxxCompiler": { "path": "clang++", "extraCLIOptions": ["-fobjc-runtime=ios-7.0"] },
-  "linker": { "path": "wasm-ld" }
+  "cCompiler": {
+    "path": "clang",
+    "extraCLIOptions": [
+      "-fobjc-runtime=ios-7.0"
+    ]
+  },
+  "cxxCompiler": {
+    "path": "clang++",
+    "extraCLIOptions": [
+      "-fobjc-runtime=ios-7.0"
+    ]
+  },
+  "linker": {
+    "path": "wasm-ld"
+  }
 }

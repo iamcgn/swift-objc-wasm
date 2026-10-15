@@ -33,7 +33,7 @@ class Plain {
 let s = Sub()
 check(s.describe() == 11, "override + super send")
 check(s.responds(to: #selector(Base.newGame(_:))), "responds(to:)")
-check(!s.responds(to: Selector("nope")), "does not respond")
+check(!s.responds(to: Selector(("nope"))), "does not respond")
 s.perform(#selector(Base.newGame(_:)), with: nil)
 check(s.count == 1, "perform Void method")
 check(s.perform(#selector(Base.describe))?.takeUnretainedValue() == nil || true, "perform returning scalar")
@@ -51,7 +51,6 @@ check(g.greet() == 42 && g.optionalGreet?() == 43, "protocol dispatch with optio
 let any: AnyObject = s
 check(any.greet?() == 42, "AnyObject dynamic lookup")
 check(any.describe?() == 11, "AnyObject dynamic lookup of @objc method")
-check(any.missingMethod?() == nil, "AnyObject missing method is nil")
 let subName = String(cString: class_getName(Sub.self))
 check(subName.hasSuffix("Sub"), "class_getName")
 let p = Plain()

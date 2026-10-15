@@ -27,8 +27,13 @@
 #   define OBJC_OLD_DISPATCH_PROTOTYPES 0
 #endif
 
-#define OBJC_EXPORT extern __attribute__((visibility("default")))
-#define OBJC_IMPORT extern
+#if defined(__cplusplus)
+#   define OBJC_EXPORT extern "C" __attribute__((visibility("default")))
+#   define OBJC_IMPORT extern "C"
+#else
+#   define OBJC_EXPORT extern __attribute__((visibility("default")))
+#   define OBJC_IMPORT extern
+#endif
 #define OBJC_INLINE static inline
 
 #define OBJC_AVAILABLE(x, i, t, w, b)
