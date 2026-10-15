@@ -18,7 +18,7 @@ import ObjectiveC
 /// On WebAssembly, as on 32-bit Darwin, Objective-C's BOOL type is a "signed
 /// char". The Clang importer imports it as ObjCBool.
 @frozen
-public struct ObjCBool : ExpressibleByBooleanLiteral {
+public struct ObjCBool : ExpressibleByBooleanLiteral, Sendable {
   @usableFromInline var _value: Int8
 
   @_transparent
@@ -76,7 +76,7 @@ func _convertObjCBoolToBool(_ x: ObjCBool) -> Bool {
 /// The Clang importer imports SEL as Selector. A selector is the interned,
 /// canonical name of a method; equality is pointer equality.
 @frozen
-public struct Selector : ExpressibleByStringLiteral {
+public struct Selector : ExpressibleByStringLiteral, @unchecked Sendable {
   var ptr: OpaquePointer
 
   /// Create a selector from a string.
@@ -121,7 +121,7 @@ extension Selector : CustomReflectable {
 //===----------------------------------------------------------------------===//
 
 @frozen
-public struct NSZone {
+public struct NSZone : @unchecked Sendable {
   var pointer: OpaquePointer
 }
 
