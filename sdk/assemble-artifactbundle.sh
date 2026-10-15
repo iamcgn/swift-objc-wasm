@@ -36,11 +36,16 @@ cp -R "$STDLIB_INSTALL/shims" "$T/swift.xctoolchain/usr/lib/swift_static/"
 
 # FoundationEssentials and its support libraries from the SDK-stage build.
 if [[ -d "$FOUNDATION_BUILD/lib" ]]; then
-  for name in FoundationEssentials FoundationInternationalization _FoundationCollections _FoundationCShims FoundationICU; do
-    mod=$(find "$FOUNDATION_BUILD" -maxdepth 4 -type d -name "$name.swiftmodule" | head -1)
-    [[ -n "$mod" ]] && { rm -rf "$WASI_LIB/$name.swiftmodule"; cp -R "$mod" "$WASI_LIB/"; }
-    lib=$(find "$FOUNDATION_BUILD" -maxdepth 4 -name "lib$name.a" | head -1)
-    [[ -n "$lib" ]] && cp "$lib" "$WASI_LIB/"
+  for name in FoundationEssentials FoundationInternationalization _FoundationCollections; do
+    rm -rf "$WASI_LIB/$name.swiftmodule"
+    mkdir -p "$WASI_LIB/$name.swiftmodule"
+    for ext in swiftmodule swiftdoc swiftinterface private.swiftinterface swiftsourceinfo; do
+      [[ -f "$FOUNDATION_BUILD/swift/$name.$ext" ]] && cp "$FOUNDATION_BUILD/swift/$name.$ext" "$WASI_LIB/$name.swiftmodule/wasm32-unknown-wasip1.$ext"
+    done
+    [[ -f "$FOUNDATION_BUILD/lib/lib$name.a" ]] && cp "$FOUNDATION_BUILD/lib/lib$name.a" "$WASI_LIB/"
+  done
+  for name in _FoundationCShims _FoundationICU; do
+    [[ -f "$FOUNDATION_BUILD/lib/lib$name.a" ]] && cp "$FOUNDATION_BUILD/lib/lib$name.a" "$WASI_LIB/"
   done
 fi
 
