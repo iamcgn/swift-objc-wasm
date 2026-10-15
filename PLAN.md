@@ -176,7 +176,7 @@ No binaries or build outputs are in git history (largest blob 41 KB). No secrets
 6. **objc4 header text: rewrite the 16 verbatim comments** rather than placing `objc.h`, `runtime.h` and `message.h` under APSL 2.0. APSL would bring its modification and deployment duties into three headers that every consumer includes, and APSL is not GPL-compatible. Declarations stay: they are the API, and reproducing an API's declarations for compatibility is the position every alternative runtime takes.
 7. **Copyright line**: "Copyright 2026 Corey Earwood and the swift-objc-wasm contributors".
 8. **Reference copies under `runtime/docs/overlay/`: drop** (cite the tag).
-9. **Release form: source tag plus the artifactbundle as a release asset**, macOS arm64 host only for now (Phase 6's Linux-host toolset remains a CI follow-up). GitHub caps an asset at 2 GiB: the bundle must be compressed (`tar.gz`, as `swift sdk install` expects) and, if still over, host binaries stripped; measure before tagging. Alternative: source only at first, consumers build with the scripts (2–4 h).
+9. **Release form: source tag plus the artifactbundle as a release asset**, macOS arm64 host only for now (Phase 6's Linux-host toolset remains a CI follow-up). GitHub caps an asset at 2 GiB: the bundle must be compressed (`tar.gz`, as `swift sdk install` expects) and, if still over, host binaries stripped; measure before tagging (measured 2026-10-15 from commit 9b74613: 665 MB as `tar.gz`, so no stripping needed). Alternative: source only at first, consumers build with the scripts (2–4 h).
 
 ### 7.3 Steps, in order (1–7 done 2026-10-15, commit 9b74613 and the verification after it; 8–11 await the go-ahead)
 
