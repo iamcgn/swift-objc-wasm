@@ -8,7 +8,9 @@
       "-Xfrontend",
       "-enable-objc-interop",
       "-Xfrontend",
-      "-validate-tbd-against-ir=none"
+      "-validate-tbd-against-ir=none",
+      "-Xfrontend",
+      "-disable-objc-attr-requires-foundation-module"
     ]
   },
   "cCompiler": {
