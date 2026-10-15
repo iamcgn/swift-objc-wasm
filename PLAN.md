@@ -170,11 +170,11 @@ one needs the user's decision.
 
 No binaries or build outputs are in git history (largest blob 41 KB). No secrets or emails are in tracked files. The swiftui-web branch (25 files vs `main`, unmerged) adds nothing copied from third parties; its existing `LICENSE`/`NOTICE` need no change.
 
-### 7.2 Decisions for the user (defaults in bold)
+### 7.2 Decisions (taken 2026-10-15: each default below was confirmed)
 
 5. **Repo license: Apache-2.0 with the Swift Runtime Library Exception** (the swift.org `LICENSE.txt` form, SPDX `Apache-2.0 WITH Swift-exception`). `libobjc.a` and the overlay are statically linked into every consumer's app; plain Apache-2.0 would oblige every app to carry our NOTICE, which is what the exception exists to waive. It also matches every Apache file we carry, so the repo stays single-license apart from upstream notices. Alternative: MIT for original files (simpler text, but the repo is mixed-license anyway and consumers lose the exception's clarity).
 6. **objc4 header text: rewrite the 16 verbatim comments** rather than placing `objc.h`, `runtime.h` and `message.h` under APSL 2.0. APSL would bring its modification and deployment duties into three headers that every consumer includes, and APSL is not GPL-compatible. Declarations stay: they are the API, and reproducing an API's declarations for compatibility is the position every alternative runtime takes.
-7. **Copyright line**: "Copyright 2026 <holder> and the swift-objc-wasm contributors" — the user's name or handle is needed.
+7. **Copyright line**: "Copyright 2026 Corey Earwood and the swift-objc-wasm contributors".
 8. **Reference copies under `runtime/docs/overlay/`: drop** (cite the tag).
 9. **Release form: source tag plus the artifactbundle as a release asset**, macOS arm64 host only for now (Phase 6's Linux-host toolset remains a CI follow-up). GitHub caps an asset at 2 GiB: the bundle must be compressed (`tar.gz`, as `swift sdk install` expects) and, if still over, host binaries stripped; measure before tagging. Alternative: source only at first, consumers build with the scripts (2–4 h).
 
