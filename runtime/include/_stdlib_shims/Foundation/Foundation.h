@@ -49,6 +49,18 @@ typedef NSString *NSErrorUserInfoKey;
 + (BOOL)supportsSecureCoding;
 @end
 
+typedef unsigned short unichar;
+
+/* Declaration only: there is no NSString implementation in libobjc-wasm. The Swift
+ * runtime calls these on objects it has already identified as Foundation strings. */
+@interface NSString : NSObject <NSCopying, NSMutableCopying>
+- (NSUInteger)length;
+- (unichar)characterAtIndex:(NSUInteger)index;
+- (const char *)UTF8String;
+@property (readonly, copy) NSString *decomposedStringWithCanonicalMapping;
++ (instancetype)stringWithUTF8String:(const char *)nullTerminatedCString;
+@end
+
 /* Messages the Swift runtime sends to Foundation objects it looked up by name. */
 @interface NSObject (FoundationShimSelectors)
 - (id)domain;
@@ -57,7 +69,6 @@ typedef NSString *NSErrorUserInfoKey;
 - (id)localizedDescription;
 + (id)dictionary;
 + (id)null;
-- (NSUInteger)length;
 - (id)objectForKey:(id)key;
 - (BOOL)isNSObject__;
 - (BOOL)isNSString__;
