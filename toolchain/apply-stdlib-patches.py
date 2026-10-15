@@ -179,6 +179,17 @@ _swift_stdlib_dyld_is_objc_constant_string(const void *addr) {
 "return 0;   // libobjc-wasm: no dyld"),
 ])
 
+# ObjCRuntimeGetImageNameFromClass.mm: Mach-O only; stub the setup on wasm.
+p = os.path.join(root, "swift/stdlib/public/runtime/ObjCRuntimeGetImageNameFromClass.mm")
+s = open(p).read()
+if "__wasm__" not in s:
+    first = "#if SWIFT_OBJC_INTEROP\n"; i = s.index(first) + len(first)
+    s = s[:i] + "#if defined(__wasm__)\n// libobjc-wasm: one static image; no hook needed.\nvoid swift::setUpObjCRuntimeGetImageNameFromClass() {}\n#else\n" + s[i:]
+    last = "#endif // SWIFT_OBJC_INTEROP"; j = s.rindex(last)
+    s = s[:j] + "#endif // !defined(__wasm__)\n" + s[j:]
+    open(p, "w").write(s)
+    print("patched ObjCRuntimeGetImageNameFromClass.mm")
+
 # The ObjectiveC overlay for WASI.
 dst = os.path.join(root, "swift/stdlib/public/ObjectiveC")
 os.makedirs(dst, exist_ok=True)

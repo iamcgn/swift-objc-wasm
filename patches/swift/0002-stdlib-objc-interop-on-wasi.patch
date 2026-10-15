@@ -96,6 +96,28 @@ index 328f81ebece..4d04aa5a23e 100644
 +  (1<<SWIFT_ABI_DEFAULT_OBJC_NUM_RESERVED_LOW_BITS)
 +
  #endif // SWIFT_STDLIB_SHIMS_ABI_SYSTEM_H
+diff --git a/stdlib/public/runtime/ObjCRuntimeGetImageNameFromClass.mm b/stdlib/public/runtime/ObjCRuntimeGetImageNameFromClass.mm
+index 4503f918626..df41bfe040e 100644
+--- a/stdlib/public/runtime/ObjCRuntimeGetImageNameFromClass.mm
++++ b/stdlib/public/runtime/ObjCRuntimeGetImageNameFromClass.mm
+@@ -20,6 +20,11 @@
+ #include "swift/Runtime/Config.h"
+ 
+ #if SWIFT_OBJC_INTEROP
++#if defined(__wasm__)
++// libobjc-wasm: there is one static image and the runtime's class_getImageName
++// answers for every class, so no hook is needed.
++void swift::setUpObjCRuntimeGetImageNameFromClass() {}
++#else
+ 
+ #include "swift/Runtime/Metadata.h"
+ 
+@@ -381,4 +386,5 @@ static void patchGetImageNameInImage(const struct mach_header *mh,
+   }
+ }
+ 
++#endif // !defined(__wasm__)
+ #endif // SWIFT_OBJC_INTEROP
 diff --git a/stdlib/public/runtime/SwiftObject.mm b/stdlib/public/runtime/SwiftObject.mm
 index acee3dc8244..2e34c00a699 100644
 --- a/stdlib/public/runtime/SwiftObject.mm
