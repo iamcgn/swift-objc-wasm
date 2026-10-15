@@ -253,4 +253,50 @@ patch("swift/utils/swift_build_support/swift_build_support/products/wasmstdlib.p
 "the interop build has no test-support modules"),
 ])
 patch("swift/utils/swift_build_support/swift_build_support/products/wasmswiftsdk.py", [("        swift_flags = ['-sdk', wasi_sysroot, '-resource-dir',\n                       swift_resource_dir] + extra_swift_flags\n        c_flags = ['-resource-dir', clang_resource_dir]\n        cxx_flags = c_flags + ['-fno-exceptions']\n", "        swift_flags = ['-sdk', wasi_sysroot, '-resource-dir',\n                       swift_resource_dir] + extra_swift_flags\n        c_flags = ['-resource-dir', clang_resource_dir]\n        cxx_flags = c_flags + ['-fno-exceptions']\n        # libobjc-wasm: everything built against the interop stdlib must also\n        # compile with Objective-C interop on.\n        objc_runtime = os.environ.get('SWIFT_OBJC_WASM_RUNTIME')\n        if objc_runtime:\n            objc_include = os.path.join(objc_runtime, 'include')\n            swift_flags += ['-Xfrontend', '-enable-objc-interop',\n                            '-Xfrontend', '-disable-objc-attr-requires-foundation-module',\n                            '-I', objc_include, '-Xcc', '-I' + objc_include]\n            c_flags += ['-fobjc-runtime=ios-7.0', '-I' + objc_include]\n            cxx_flags += ['-fobjc-runtime=ios-7.0', '-I' + objc_include]\n", "SWIFT_OBJC_WASM_RUNTIME")])
+# ---- wasm32 weak-reference marker and spare bits (runtime ABI constants) ----
+patch("swift/stdlib/public/SwiftShims/swift/shims/System.h", [
+("#define SWIFT_ABI_WASM32_LEAST_VALID_POINTER 4096\n",
+"""#define SWIFT_ABI_WASM32_LEAST_VALID_POINTER 4096
+
+// libobjc-wasm: objects are at least 4-byte aligned; the low bit marks native
+// Swift weak references (no Objective-C tagged pointers exist on wasm32).
+#define SWIFT_ABI_WASM32_SWIFT_SPARE_BITS_MASK 0x00000003U
+#define SWIFT_ABI_WASM32_OBJC_WEAK_REFERENCE_MARKER_MASK  \\
+  (SWIFT_ABI_DEFAULT_OBJC_RESERVED_BITS_MASK |            \\
+   1<<SWIFT_ABI_DEFAULT_OBJC_NUM_RESERVED_LOW_BITS)
+#define SWIFT_ABI_WASM32_OBJC_WEAK_REFERENCE_MARKER_VALUE \\
+  (1<<SWIFT_ABI_DEFAULT_OBJC_NUM_RESERVED_LOW_BITS)
+""", "SWIFT_ABI_WASM32_OBJC_WEAK_REFERENCE_MARKER_MASK"),
+])
+patch("swift/stdlib/public/SwiftShims/swift/shims/HeapObject.h", [
+("""#elif defined(__wasm32__)
+
+#define _swift_abi_LeastValidPointerValue                                      \\
+  (__swift_uintptr_t) SWIFT_ABI_WASM32_LEAST_VALID_POINTER
+
+#define _swift_abi_SwiftSpareBitsMask                                          \\
+  (__swift_uintptr_t) SWIFT_ABI_DEFAULT_SWIFT_SPARE_BITS_MASK
+""",
+"""#elif defined(__wasm32__)
+
+#define _swift_abi_LeastValidPointerValue                                      \\
+  (__swift_uintptr_t) SWIFT_ABI_WASM32_LEAST_VALID_POINTER
+
+#define _swift_abi_SwiftSpareBitsMask                                          \\
+  (__swift_uintptr_t) SWIFT_ABI_WASM32_SWIFT_SPARE_BITS_MASK
+""", "SWIFT_ABI_WASM32_SWIFT_SPARE_BITS_MASK"),
+])
+patch("swift/stdlib/public/runtime/WeakReference.h", [
+("""#elif defined(__arm64__) || defined(__aarch64__) || defined(_M_ARM64)
+    NativeMarkerMask  = SWIFT_ABI_ARM64_OBJC_WEAK_REFERENCE_MARKER_MASK,
+    NativeMarkerValue = SWIFT_ABI_ARM64_OBJC_WEAK_REFERENCE_MARKER_VALUE
+#else""",
+"""#elif defined(__arm64__) || defined(__aarch64__) || defined(_M_ARM64)
+    NativeMarkerMask  = SWIFT_ABI_ARM64_OBJC_WEAK_REFERENCE_MARKER_MASK,
+    NativeMarkerValue = SWIFT_ABI_ARM64_OBJC_WEAK_REFERENCE_MARKER_VALUE
+#elif defined(__wasm32__)
+    NativeMarkerMask  = SWIFT_ABI_WASM32_OBJC_WEAK_REFERENCE_MARKER_MASK,
+    NativeMarkerValue = SWIFT_ABI_WASM32_OBJC_WEAK_REFERENCE_MARKER_VALUE
+#else""", "__wasm32__"),
+])
 print("done")
