@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+# SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 """Apply the libobjc-wasm standard-library build patches to the swift checkout.
 Idempotent. Usage: apply-stdlib-patches.py [SWIFT_SOURCE]"""
 import os, sys, shutil

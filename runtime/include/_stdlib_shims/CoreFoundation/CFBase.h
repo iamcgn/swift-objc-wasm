@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /* CoreFoundation/CFBase.h shim: the types and functions the Swift runtime's
  * bridging code refers to, implemented by libobjc-wasm's CFLite.c. */
 #ifndef __COREFOUNDATION_CFBASE__

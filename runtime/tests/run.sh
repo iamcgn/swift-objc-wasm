@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+# SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 # Build and run the runtime tests on WasmKit. Set WITH_OBJC=1 (with CLANG=<patched clang>)
 # to include the Objective-C tests.
 set -euo pipefail

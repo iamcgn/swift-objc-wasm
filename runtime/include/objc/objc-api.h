@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /*
  * objc-api.h — attribute and availability macros of the objc4 API, for libobjc-wasm.
  * Availability macros are no-ops: there is exactly one runtime version on this platform.

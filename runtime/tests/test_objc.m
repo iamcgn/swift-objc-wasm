@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /* Objective-C level runtime test: needs a clang that targets this runtime on wasm. */
 #import <objc/NSObject.h>
 #import <objc/runtime.h>

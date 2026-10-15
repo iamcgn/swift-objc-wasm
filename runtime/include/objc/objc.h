@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /*
  * objc.h — basic Objective-C types (objc4 API), libobjc-wasm.
  */
@@ -10,22 +12,22 @@
 #include <objc/objc-api.h>
 
 #if !OBJC_TYPES_DEFINED
-/// An opaque type that represents an Objective-C class.
+/// A class, as the runtime sees it (opaque).
 typedef struct objc_class *Class;
 
-/// Represents an instance of a class.
+/// The header every object starts with: its class pointer.
 struct objc_object {
     Class _Nonnull isa OBJC_ISA_AVAILABILITY;
 };
 
-/// A pointer to an instance of a class.
+/// Any object, typed only by its header.
 typedef struct objc_object *id;
 #endif
 
-/// An opaque type that represents a method selector.
+/// A method selector: the runtime's unique handle for a method name.
 typedef struct objc_selector *SEL;
 
-/// A pointer to the function of a method implementation.
+/// The function implementing a method; the receiver and selector come first.
 #if !OBJC_OLD_DISPATCH_PROTOTYPES
 typedef void (*IMP)(void /* id, SEL, ... */ );
 #else

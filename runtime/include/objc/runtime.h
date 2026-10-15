@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /*
  * runtime.h — the Objective-C runtime API (objc4 API surface), libobjc-wasm.
  *
@@ -18,16 +20,16 @@
 
 #if !OBJC_TYPES_DEFINED
 
-/// An opaque type that represents a method in a class definition.
+/// A method entry (opaque): selector, type encoding, implementation.
 typedef struct objc_method *Method;
 
-/// An opaque type that represents an instance variable.
+/// An instance-variable entry (opaque): name, type encoding, offset.
 typedef struct objc_ivar *Ivar;
 
-/// An opaque type that represents a category.
+/// A category entry (opaque).
 typedef struct objc_category *Category;
 
-/// An opaque type that represents an Objective-C declared property.
+/// A declared-property entry (opaque).
 typedef struct objc_property *objc_property_t;
 
 #endif
@@ -44,7 +46,7 @@ struct objc_method_description {
     char * _Nullable types;           /**< The types of the method arguments */
 };
 
-/// Defines a property attribute
+/// One name/value pair from a property's attribute string.
 typedef struct {
     const char * _Nonnull name;           /**< The name of the attribute */
     const char * _Nonnull value;          /**< The value of the attribute (usually empty) */
@@ -67,7 +69,7 @@ OBJC_EXPORT Ivar _Nullable object_setInstanceVariable(id _Nullable obj, const ch
 OBJC_EXPORT Ivar _Nullable object_setInstanceVariableWithStrongDefault(id _Nullable obj, const char * _Nonnull name, void * _Nullable value) OBJC_ARC_UNAVAILABLE;
 OBJC_EXPORT Ivar _Nullable object_getInstanceVariable(id _Nullable obj, const char * _Nonnull name, void * _Nullable * _Nullable outValue) OBJC_ARC_UNAVAILABLE;
 
-/* Obtaining Class Definitions */
+/* Finding classes */
 
 OBJC_EXPORT Class _Nullable objc_getClass(const char * _Nonnull name);
 OBJC_EXPORT Class _Nullable objc_getMetaClass(const char * _Nonnull name);
@@ -136,7 +138,7 @@ OBJC_EXPORT struct objc_method_description * _Nonnull method_getDescription(Meth
 OBJC_EXPORT IMP _Nonnull method_setImplementation(Method _Nonnull m, IMP _Nonnull imp);
 OBJC_EXPORT void method_exchangeImplementations(Method _Nonnull m1, Method _Nonnull m2);
 
-/* Working with Instance Variables */
+/* Instance variables */
 
 OBJC_EXPORT const char * _Nullable ivar_getName(Ivar _Nonnull v);
 OBJC_EXPORT const char * _Nullable ivar_getTypeEncoding(Ivar _Nonnull v);
@@ -178,7 +180,7 @@ OBJC_EXPORT const char * _Nonnull * _Nonnull objc_copyClassNamesForImage(const c
 
 OBJC_EXPORT BOOL sel_isEqual(SEL _Nonnull lhs, SEL _Nonnull rhs);
 
-/* Objective-C Language Features */
+/* Language-support entry points */
 
 OBJC_EXPORT void objc_enumerationMutation(id _Nonnull obj);
 OBJC_EXPORT void objc_setEnumerationMutationHandler(void (* _Nullable handler)(id _Nonnull));

@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /* TargetConditionals.h shim for building the Swift runtime against libobjc-wasm. */
 #ifndef __TARGETCONDITIONALS__
 #define __TARGETCONDITIONALS__

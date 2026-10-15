@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /* Foundation/Foundation.h shim for building the Swift runtime against libobjc-wasm.
  * There is no Foundation here: only the declarations the runtime's Objective-C++
  * sources need to compile. Foundation classes are looked up at run time by name. */

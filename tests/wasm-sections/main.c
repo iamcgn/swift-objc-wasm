@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 #include <stdio.h>
 /* Idiom from swift/stdlib/public/runtime/SwiftRT-ELF-WASM.cpp: declare an empty retained
    section so wasm-ld always synthesizes __start_/__stop_ for a C-identifier section name. */

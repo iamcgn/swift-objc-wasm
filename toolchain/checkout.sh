@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+# SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 # Clone swiftlang/swift and companions at the pinned release tag into $SWIFT_SOURCE (default
 # ~/Development/swift-source), then apply the patch series from ../patches.
 set -euo pipefail

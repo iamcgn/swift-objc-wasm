@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+# SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 # Assemble the swift-6.3.3-RELEASE_wasm-objc Swift SDK artifactbundle from:
 #   - the stock swift-6.3.3-RELEASE_wasm bundle (WASI.sdk, clang resource dir, layout)
 #   - the wasm stdlib built with interop (STDLIB_INSTALL: a swift_static dir)
@@ -76,5 +78,15 @@ cat > "$OUT/info.json" <<JSON
 JSON
 cp "$STOCK_T/swift-sdk.json" "$T/"
 cp "$HERE/sdk/toolset.json" "$T/toolset.json"
+
+# License and provenance at the bundle root (see THIRD_PARTY_NOTICES.md for what the
+# bundle redistributes), and the exact sources this bundle was built from.
+cp "$HERE/LICENSE.txt" "$HERE/NOTICE.txt" "$HERE/THIRD_PARTY_NOTICES.md" "$OUT/"
+{
+  echo "swift-objc-wasm $(git -C "$HERE" describe --tags --always --dirty 2>/dev/null) ($(git -C "$HERE" rev-parse HEAD 2>/dev/null))"
+  echo "swift / llvm-project base: swift-6.3.3-RELEASE"
+  echo "patch series sha256: $(cat "$HERE"/patches/*/*.patch | shasum -a 256 | cut -d' ' -f1)"
+  echo "assembled: $(date -u +%Y-%m-%dT%H:%M:%SZ) on $(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]')"
+} > "$OUT/VERSION"
 echo "assembled $OUT"
 ls "$WASI_LIB" | tr '\n' ' '; echo

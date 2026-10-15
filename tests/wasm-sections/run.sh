@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+# SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 # Phase 0 gate: metadata discovery through __start_/__stop_ symbols survives wasm-ld --gc-sections.
 set -euo pipefail
 TC=${TC:-$HOME/Library/Developer/Toolchains/swift-6.3.3-RELEASE.xctoolchain/usr/bin}

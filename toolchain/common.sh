@@ -1,3 +1,5 @@
+# swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+# SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 # Shared configuration for the host compiler and wasm stdlib builds.
 SWIFT_SOURCE=${SWIFT_SOURCE:-$HOME/Development/swift-source}
 export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}

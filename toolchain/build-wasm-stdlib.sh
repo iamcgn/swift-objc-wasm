@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+# SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 # Build the wasm32-unknown-wasip1 standard library with Objective-C interop against
 # libobjc-wasm, using the locally installed patched host compiler.
 #   SWIFT_OBJC_WASM_RUNTIME  install dir of libobjc-wasm (default runtime/build/install)

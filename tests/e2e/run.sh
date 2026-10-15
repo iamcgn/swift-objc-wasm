@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+# SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 # Build each e2e package with the interop SDK and run it on WasmKit. A package whose directory
 # ends in `.xfail` must fail to compile (a documented unsupported case).
 set -uo pipefail

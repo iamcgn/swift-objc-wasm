@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /* Core runtime test with hand-built objc4 metadata (no Objective-C compiler needed). */
 #include <objc/runtime.h>
 #include <objc/message.h>

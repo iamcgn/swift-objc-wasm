@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+# SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 # Build libobjc.a for wasm32-unknown-wasip1.
 #   CLANG   compiler to use (the patched clang is needed for the .m sources)
 #   BUNDLE  the Swift SDK's wasm32-unknown-wasip1 directory (WASI.sdk + clang resource dir)

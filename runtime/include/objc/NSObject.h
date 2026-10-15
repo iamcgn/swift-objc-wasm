@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /*
  * NSObject.h — the NSObject protocol and root class (objc4 API), libobjc-wasm.
  * As on Darwin, the root class is provided by the Objective-C runtime library.

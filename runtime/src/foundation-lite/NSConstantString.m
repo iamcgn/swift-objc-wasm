@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /*
  * NSConstantString.m — the class of @"..." literals, without Foundation.
  * Layout matches clang's __NSConstantString_tag: isa, flags, bytes, length.

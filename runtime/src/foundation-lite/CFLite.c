@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /*
  * CFLite.c — the few CoreFoundation and malloc-zone entry points the Swift runtime
  * calls under Objective-C interop, implemented over the ObjC runtime.

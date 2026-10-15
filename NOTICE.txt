@@ -1,0 +1,20 @@
+swift-objc-wasm
+Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+
+Licensed under the Apache License, Version 2.0 with the Runtime Library
+Exception (see LICENSE.txt; SPDX: Apache-2.0 WITH Swift-exception), except
+for the third-party files identified in THIRD_PARTY_NOTICES.md, which carry
+their own notices and licenses.
+
+libobjc-wasm implements the Objective-C runtime ABI and public API of Apple's
+objc4 runtime (https://github.com/apple-oss-distributions/objc4) so that code
+compiled for that runtime links and runs on WebAssembly. The metadata layouts
+and the declarations in runtime/include/objc follow objc4's for compatibility;
+no objc4 implementation code is used.
+
+This product includes software developed as part of the Swift.org open source
+project (https://swift.org) and the LLVM Project (https://llvm.org); see
+THIRD_PARTY_NOTICES.md.
+
+Apple, Objective-C and Swift are trademarks of Apple Inc. This project is not
+affiliated with or endorsed by Apple.

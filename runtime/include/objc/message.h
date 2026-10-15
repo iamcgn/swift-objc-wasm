@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 /*
  * message.h — message dispatch (objc4 API), libobjc-wasm.
  *
@@ -16,12 +18,12 @@
 #include <objc/objc.h>
 #include <objc/runtime.h>
 
-/// Specifies the superclass of an instance.
+/// The two halves of a super send: the receiver, and the class where lookup starts.
 struct objc_super {
-    /// Specifies an instance of a class.
+    /// The object that receives the message.
     __unsafe_unretained _Nonnull id receiver;
 
-    /// Specifies the particular superclass of the instance to message.
+    /// The class whose method table the lookup begins in (the sender's superclass).
     __unsafe_unretained _Nonnull Class super_class;
 };
 

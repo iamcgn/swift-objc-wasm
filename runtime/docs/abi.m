@@ -1,3 +1,5 @@
+// swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 #include <stdint.h>
 typedef struct objc_class *Class; typedef struct objc_object { Class isa; } *id; typedef struct objc_selector *SEL;
 @protocol NSObject - (int)hash; @optional - (void)opt; @end

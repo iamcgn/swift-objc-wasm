@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+# SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
 # The two compiler-level checks from PLAN.md Phases 0 and 1, run against the patched host build:
 #  1. baseline: with interop off (the default on wasm) the patched swift-frontend and clang emit
 #     the same IR as the stock swift-6.3.3-RELEASE toolchain for a wasm32 input (llvm-diff);

@@ -1,8 +1,23 @@
 //===--- ObjectiveC.swift - The ObjectiveC overlay for libobjc-wasm -------===//
 //
-// Port of the historical Swift overlay (stdlib/public/Darwin/ObjectiveC at
-// swift-5.2-RELEASE) for platforms whose Objective-C runtime is libobjc-wasm.
-// The compiler looks up `ObjCBool`, `Selector` and `NSZone` in this module.
+// This source file is part of the Swift.org open source project
+//
+// Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See https://swift.org/LICENSE.txt for license information
+// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+// Modified for swift-objc-wasm; modifications Copyright 2026 Corey Earwood and
+// the swift-objc-wasm contributors, under the same license
+// (SPDX-License-Identifier: Apache-2.0 WITH Swift-exception).
+//
+// Ported from stdlib/public/Darwin/ObjectiveC/ObjectiveC.swift at
+// swift-5.2-RELEASE for platforms whose Objective-C runtime is libobjc-wasm:
+// the Darwin-only Bool-backed ObjCBool variant, the overlay shims and the
+// CVarArg conformance are gone, autoreleasepool calls the runtime directly, and
+// the types are Sendable. The compiler looks up `ObjCBool`, `Selector` and
+// `NSZone` in this module.
 //
 //===----------------------------------------------------------------------===//
 
