@@ -85,9 +85,8 @@ patch("swift/stdlib/public/runtime/SwiftObject.mm", [
 """,
 """#if defined(__wasm__)
 // libobjc-wasm: WebAssembly type-checks indirect calls; the runtime provides a
-// typed perform that selects the call signature from the method's encoding.
-extern "C" id objc_performSelector(id self, SEL sel, unsigned int argc, id arg1, id arg2);
-
+// typed perform (objc/message.h) that selects the call signature from the
+// method's type encoding.
 - (id)performSelector:(SEL)aSelector {
   return objc_performSelector(self, aSelector, 0, nil, nil);
 }

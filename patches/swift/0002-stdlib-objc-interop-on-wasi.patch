@@ -119,18 +119,17 @@ index 4503f918626..df41bfe040e 100644
 +#endif // !defined(__wasm__)
  #endif // SWIFT_OBJC_INTEROP
 diff --git a/stdlib/public/runtime/SwiftObject.mm b/stdlib/public/runtime/SwiftObject.mm
-index acee3dc8244..2e34c00a699 100644
+index acee3dc8244..c26b130c9e9 100644
 --- a/stdlib/public/runtime/SwiftObject.mm
 +++ b/stdlib/public/runtime/SwiftObject.mm
-@@ -480,6 +480,24 @@ - (BOOL)isEqual:(id)other {
+@@ -480,6 +480,23 @@ - (BOOL)isEqual:(id)other {
    return NO;
  }
  
 +#if defined(__wasm__)
 +// libobjc-wasm: WebAssembly type-checks indirect calls; the runtime provides a
-+// typed perform that selects the call signature from the method's encoding.
-+extern "C" id objc_performSelector(id self, SEL sel, unsigned int argc, id arg1, id arg2);
-+
++// typed perform (objc/message.h) that selects the call signature from the
++// method's type encoding.
 +- (id)performSelector:(SEL)aSelector {
 +  return objc_performSelector(self, aSelector, 0, nil, nil);
 +}
@@ -147,7 +146,7 @@ index acee3dc8244..2e34c00a699 100644
  - (id)performSelector:(SEL)aSelector {
    return ((id(*)(id, SEL))objc_msgSend)(self, aSelector);
  }
-@@ -493,6 +511,7 @@ - (id)performSelector:(SEL)aSelector withObject:(id)object1
+@@ -493,6 +510,7 @@ - (id)performSelector:(SEL)aSelector withObject:(id)object1
    return ((id(*)(id, SEL, id, id))objc_msgSend)(self, aSelector, object1,
                                                                   object2);
  }
