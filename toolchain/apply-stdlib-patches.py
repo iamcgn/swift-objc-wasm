@@ -234,6 +234,8 @@ patch("swift/utils/swift_build_support/swift_build_support/products/wasmstdlib.p
                                       os.path.join(objc_runtime, 'include', '_stdlib_shims'))
             self.cmake_options.define('SWIFT_WASI_OBJC_LIB:FILEPATH',
                                       os.path.join(objc_runtime, 'lib', 'libobjc.a'))
+            # The private test-support modules import Foundation under _runtime(_ObjC).
+            self.cmake_options.define('SWIFT_STDLIB_BUILD_PRIVATE:BOOL', 'FALSE')
 """,
 "SWIFT_OBJC_WASM_RUNTIME"),
 ])
