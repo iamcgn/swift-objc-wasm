@@ -240,4 +240,16 @@ patch("swift/utils/swift_build_support/swift_build_support/products/wasmstdlib.p
 """,
 "SWIFT_OBJC_WASM_RUNTIME"),
 ])
+patch("swift/utils/swift_build_support/swift_build_support/products/wasmstdlib.py", [
+("""    def should_test(self, host_target):
+        return self.args.test_wasmstdlib
+""",
+"""    def should_test(self, host_target):
+        # libobjc-wasm: the interop build has no test-support modules yet.
+        if os.environ.get('SWIFT_OBJC_WASM_RUNTIME'):
+            return False
+        return self.args.test_wasmstdlib
+""",
+"the interop build has no test-support modules"),
+])
 print("done")

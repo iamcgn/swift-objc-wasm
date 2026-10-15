@@ -208,10 +208,20 @@ index 0443eddbfbb..73b738b019e 100644
  
  typedef const void * _Nullable (*createIndirectTaggedImplPtr)(id,
 diff --git a/utils/swift_build_support/swift_build_support/products/wasmstdlib.py b/utils/swift_build_support/swift_build_support/products/wasmstdlib.py
-index ca5f5a8580e..f2415af7564 100644
+index ca5f5a8580e..046c5a9da45 100644
 --- a/utils/swift_build_support/swift_build_support/products/wasmstdlib.py
 +++ b/utils/swift_build_support/swift_build_support/products/wasmstdlib.py
-@@ -217,6 +217,19 @@ class WasmStdlib(cmake_product.CMakeProduct):
+@@ -38,6 +38,9 @@ class WasmStdlib(cmake_product.CMakeProduct):
+         return self.args.build_wasmstdlib
+ 
+     def should_test(self, host_target):
++        # libobjc-wasm: the interop build has no test-support modules yet.
++        if os.environ.get('SWIFT_OBJC_WASM_RUNTIME'):
++            return False
+         return self.args.test_wasmstdlib
+ 
+     def build(self, host_target):
+@@ -217,6 +220,19 @@ class WasmStdlib(cmake_product.CMakeProduct):
  
      def add_extra_cmake_options(self):
          self.cmake_options.define('SWIFT_THREADING_PACKAGE:STRING', 'none')

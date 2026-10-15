@@ -28,29 +28,15 @@ cp -R "$STDLIB_INSTALL/shims" "$T/swift.xctoolchain/usr/lib/swift_static/" 2>/de
 cp -R "$OBJC_INSTALL/include/objc" "$OBJC_INSTALL/include/Block" "$T/WASI.sdk/include/"
 cp "$OBJC_INSTALL/lib/libobjc.a" "$T/swift.xctoolchain/usr/lib/swift_static/wasi/"
 cp "$OBJC_INSTALL/lib/libobjc.a" "$T/WASI.sdk/lib/wasm32-wasip1/"
-# Host tools: patched frontend and clang, stock driver and binutils.
-B="$T/swift.xctoolchain/usr/bin"
-cp "$HOST_BUILD/swift-macosx-arm64/bin/swift-frontend" "$B/"
-for alias in swift swift-autolink-extract swift-symbolgraph-extract swift-api-extract swift-cache-tool; do ln -f "$B/swift-frontend" "$B/$alias"; done
-cp "$STOCK_TOOLCHAIN/usr/bin/swift-driver" "$B/swift-driver" && ln -f "$B/swift-driver" "$B/swiftc"
-cp "$STOCK_TOOLCHAIN/usr/bin/swift-help" "$B/" 2>/dev/null || true
-cp "$HOST_BUILD/llvm-macosx-arm64/bin/clang-21" "$B/clang-21" && ln -sf clang-21 "$B/clang" && ln -sf clang-21 "$B/clang++"
-for t in wasm-ld lld llvm-ar llvm-ranlib llvm-nm llvm-objdump; do cp "$STOCK_TOOLCHAIN/usr/bin/$t" "$B/" 2>/dev/null || ln -sf lld "$B/$t"; done
-# Compiler support libraries and macro plugins next to the frontend.
+# Host tools and compiler libraries: the staged toolchain from toolchain/stage-toolchain.sh.
+STAGED=${STAGED:-$HOME/Development/swift-source/build/objc-wasm/toolchain-macosx-arm64/usr}
+cp -R "$STAGED/bin" "$T/swift.xctoolchain/usr/"
 mkdir -p "$T/swift.xctoolchain/usr/lib/swift"
-cp -R "$HOST_BUILD/swift-macosx-arm64/lib/swift/host" "$T/swift.xctoolchain/usr/lib/swift/"
-cp -R "$STOCK_TOOLCHAIN/usr/lib/swift/host/plugins" "$T/swift.xctoolchain/usr/lib/swift/host/" 2>/dev/null || true
-cp -R "$HOST_BUILD/llvm-macosx-arm64/lib/clang" "$T/swift.xctoolchain/usr/lib/" 2>/dev/null || true
+cp -R "$STAGED/lib/swift/host" "$T/swift.xctoolchain/usr/lib/swift/"
+cp -R "$STAGED/lib/clang" "$T/swift.xctoolchain/usr/lib/"
+ln -sfn "$(readlink "$STAGED/lib/swift/macosx")" "$T/swift.xctoolchain/usr/lib/swift/macosx"
 # Bundle metadata.
-cat > "$OUT/info.json" <<JSON
-{
-  "artifacts": {
-    "$NAME": { "type": "swiftSDK", "version": "0.0.1",
-      "variants": [ { "path": "$NAME/wasm32-unknown-wasip1/swift-sdk.json" } ] }
-  },
-  "schemaVersion": "1.0"
-}
-JSON
+printf '{\n  "artifacts": {\n    "%s": { "type": "swiftSDK", "version": "0.0.1",\n      "variants": [ { "path": "%s/wasm32-unknown-wasip1/swift-sdk.json" } ] }\n  },\n  "schemaVersion": "1.0"\n}\n' "$NAME" "$NAME" > "$OUT/info.json"
 cp "$STOCK/swift-${VERSION}-RELEASE_wasm/wasm32-unknown-wasip1/swift-sdk.json" "$T/"
 cp "$HERE/sdk/toolset.json" "$T/toolset.json"
 echo "assembled $OUT"
