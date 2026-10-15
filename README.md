@@ -29,6 +29,19 @@ FoundationEssentials and libobjc but no corelibs Foundation or CoreFoundation). 
 own tests: `runtime/tests/run.sh` (C) and `WITH_OBJC=1 CLANG=<bundle clang> runtime/tests/run.sh`
 (Objective-C).
 
+Compiler-level checks from PLAN.md Phases 0 and 1, `tests/compiler-checks.sh` (2026-10-15):
+with interop off, the patched `swift-frontend` and `clang` emit IR that `llvm-diff` finds
+identical to the stock swift-6.3.3-RELEASE toolchain's for a wasm32 input (`-O` and `-Onone`;
+the only textual differences are declaration order and the value names an assertion build
+keeps); the Darwin `swift/test/IRGen/objc_*` lit tests pass with the patched frontend (60
+passed, 1 expected failure, 25 unsupported on macOS arm64; `objc_properties.swift` passes when
+its two RUN lines are given a resource dir, since the host build carries no macOS stdlib). The
+shipped `libswiftCore.a` defines `OBJC_CLASS_$__TtCs12_SwiftObject` and its metaclass. Not
+covered: the plan's curated `swift/test/Interpreter/objc_*` list is empty, as every one of those
+tests imports Foundation directly or through its Inputs header; `Swift.swiftinterface`'s flag
+line carries `-disable-objc-interop` (from `SwiftSource.cmake`) before our
+`-enable-objc-interop`, and the last one wins.
+
 ## Build
 
 ```sh
@@ -42,6 +55,7 @@ CLANG=... WITH_OBJC=1 runtime/tests/run.sh  # runtime tests on WasmKit
 toolchain/build-wasm-stdlib.sh              # wasm stdlib + FoundationEssentials with interop
 sdk/assemble-artifactbundle.sh && swift sdk install build/swift-6.3.3-RELEASE_wasm-objc.artifactbundle
 tests/e2e/run.sh                            # Swift end-to-end tests on WasmKit
+tests/compiler-checks.sh                    # baseline IR vs stock toolchain + Darwin IRGen objc_* lit
 ```
 
 Known limits of v1: no `String`/`Array`/`Dictionary`/`Error` bridging to Foundation classes
