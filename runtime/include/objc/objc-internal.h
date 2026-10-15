@@ -8,24 +8,13 @@
 #include <objc/runtime.h>
 #include <objc/message.h>
 
-/* Image info, as emitted in objc_imageinfo by the compiler. Not required by this
- * runtime, which discovers metadata through section boundary symbols. */
-struct objc_image_info {
-    uint32_t version;
-    uint32_t flags;
-};
+/* Image info, as emitted in objc_imageinfo by the compiler (defined by clients such
+ * as the Swift runtime; this runtime discovers metadata through section bounds). */
+struct objc_image_info;
 
 /* Class registration from Swift. */
-OBJC_EXPORT Class _Nullable objc_readClassPair(Class _Nonnull cls, const struct objc_image_info * _Nonnull info);
+OBJC_EXPORT Class _Nullable objc_readClassPair(Class _Nonnull cls, const struct objc_image_info * _Nullable info);
 #define OBJC_READCLASSPAIR_DEFINED 1
-
-typedef Class _Nullable (*_objc_swiftMetadataInitializer)(Class _Nonnull cls, void * _Nullable arg);
-
-/// Realize `cls` (which may be in the class list, dynamically created, or the
-/// replacement for the stub class `previously`). Categories referencing the stub
-/// are attached to `cls`.
-OBJC_EXPORT Class _Nullable _objc_realizeClassFromSwift(Class _Nullable cls, void * _Nullable previously);
-#define OBJC_REALIZECLASSFROMSWIFT_DEFINED 1
 
 OBJC_EXPORT BOOL _objc_supportsLazyRealization(void);
 #define OBJC_SUPPORTSLAZYREALIZATION_DEFINED 1

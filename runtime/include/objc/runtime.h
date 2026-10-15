@@ -216,6 +216,15 @@ typedef const char * _Nullable (*objc_hook_lazyClassNamer)(Class _Nonnull cls);
 OBJC_EXPORT void objc_setHook_lazyClassNamer(objc_hook_lazyClassNamer _Nonnull newValue, objc_hook_lazyClassNamer _Nullable * _Nonnull outOldValue);
 #define OBJC_SETHOOK_LAZYCLASSNAMER_DEFINED 1
 
+/* Swift class realization (as in objc4's runtime.h). */
+typedef Class _Nullable (*_objc_swiftMetadataInitializer)(Class _Nonnull cls, void * _Nullable arg);
+
+/// Realize `cls` (which may be in the class list, dynamically created, or the
+/// replacement for the stub class `previously`). Categories referencing the stub
+/// are attached to `cls`.
+OBJC_EXPORT Class _Nullable _objc_realizeClassFromSwift(Class _Nullable cls, void * _Nullable previously);
+#define OBJC_REALIZECLASSFROMSWIFT_DEFINED 1
+
 /* Stub classes (Swift). The classref's low bit marks an uninitialized stub. */
 OBJC_EXPORT Class _Nullable objc_loadClassref(Class _Nullable * _Nonnull clsref);
 
