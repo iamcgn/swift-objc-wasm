@@ -45,6 +45,28 @@
 
 #define OBJC_UNAVAILABLE(_msg) __attribute__((unavailable(_msg)))
 
+/* Darwin Availability.h macros that Objective-C headers and the Swift runtime use. */
+#ifndef __OSX_AVAILABLE_STARTING
+#   define __OSX_AVAILABLE_STARTING(_osx, _ios)
+#   define __OSX_AVAILABLE_BUT_DEPRECATED(_osxIntro, _osxDep, _iosIntro, _iosDep)
+#   define __OSX_AVAILABLE_BUT_DEPRECATED_MSG(_osxIntro, _osxDep, _iosIntro, _iosDep, _msg)
+#endif
+#ifndef __API_AVAILABLE
+#   define __API_AVAILABLE(...)
+#   define __API_DEPRECATED(...)
+#   define __API_UNAVAILABLE(...)
+#endif
+#ifndef API_AVAILABLE
+#   define API_AVAILABLE(...)
+#   define API_DEPRECATED(...)
+#   define API_UNAVAILABLE(...)
+#endif
+#ifndef SPI_AVAILABLE
+#   define SPI_AVAILABLE(...)
+#endif
+#define __MAC_10_10 101000
+#define __IPHONE_8_0 80000
+
 #if __has_feature(objc_arc)
 #   define OBJC_ARC_UNAVAILABLE __attribute__((unavailable("not available in automatic reference counting mode")))
 #else

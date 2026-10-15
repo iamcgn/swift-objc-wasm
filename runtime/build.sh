@@ -50,4 +50,5 @@ INSTALL="$OUT/install"
 rm -rf "$INSTALL" && mkdir -p "$INSTALL/lib" "$INSTALL/include"
 cp "$OUT/libobjc.a" "$INSTALL/lib/"
 cp -R "$HERE/include/objc" "$HERE/include/Block" "$HERE/include/_stdlib_shims" "$INSTALL/include/"
+cp "$HERE/include/Block/Block.h" "$INSTALL/include/Block.h"   # Darwin has <Block.h> at the top level
 echo "installed to $INSTALL"
