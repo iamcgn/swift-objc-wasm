@@ -18,12 +18,16 @@ Layout:
 
 The design plan lives in `PLAN.md`.
 
-## Status (2026-10-14)
+## Status (2026-10-15)
 
 Working end to end on this machine: the interop SDK `swift-6.3.3-RELEASE_wasm-objc` builds and
 runs `tests/e2e/*` on WasmKit, and the unmodified SwiftUI-2048 app (swiftui-web's acceptance
 case: `@UIApplicationMain`, `@objc func newGame`, `#selector`, `UIKeyCommand`) runs in Chromium
-with ⌘N starting a new game.
+with ⌘N starting a new game (swiftui-web branch `objc-runtime-wasm`, decision 0023; five
+consecutive probe passes on 2026-10-15 against the SDK as assembled here, which ships
+FoundationEssentials and libobjc but no corelibs Foundation or CoreFoundation). The runtime's
+own tests: `runtime/tests/run.sh` (C) and `WITH_OBJC=1 CLANG=<bundle clang> runtime/tests/run.sh`
+(Objective-C).
 
 ## Build
 
