@@ -36,7 +36,10 @@ check(s.responds(to: #selector(Base.newGame(_:))), "responds(to:)")
 check(!s.responds(to: Selector(("nope"))), "does not respond")
 s.perform(#selector(Base.newGame(_:)), with: nil)
 check(s.count == 1, "perform Void method")
-check(s.perform(#selector(Base.describe))?.takeUnretainedValue() == nil || true, "perform returning scalar")
+// `perform` on a method returning a scalar yields the raw return value in the pointer slot,
+// as on Darwin; it is not an object and must not be retained (no takeUnretainedValue here).
+let scalarResult = s.perform(#selector(Base.describe))
+check(scalarResult.map { unsafeBitCast($0, to: Int.self) } == 11, "perform returning a scalar yields the value (11) in the result slot")
 check(#selector(Base.newGame(_:)) == Selector("newGame:"), "selector interning")
 check(String(_sel: #selector(Base.describe)) == "describe", "selector name")
 s.flag = true
