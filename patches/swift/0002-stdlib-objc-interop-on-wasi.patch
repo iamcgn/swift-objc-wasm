@@ -65,6 +65,37 @@ index 59f938fbab3..11173f7166d 100644
  -ldl
  -lstdc++
  -lm
+diff --git a/stdlib/public/SwiftShims/swift/shims/HeapObject.h b/stdlib/public/SwiftShims/swift/shims/HeapObject.h
+index dc01fa061e7..307be09512b 100644
+--- a/stdlib/public/SwiftShims/swift/shims/HeapObject.h
++++ b/stdlib/public/SwiftShims/swift/shims/HeapObject.h
+@@ -237,7 +237,7 @@ static_assert(alignof(HeapObject) == alignof(void*),
+   (__swift_uintptr_t) SWIFT_ABI_WASM32_LEAST_VALID_POINTER
+ 
+ #define _swift_abi_SwiftSpareBitsMask                                          \
+-  (__swift_uintptr_t) SWIFT_ABI_DEFAULT_SWIFT_SPARE_BITS_MASK
++  (__swift_uintptr_t) SWIFT_ABI_WASM32_SWIFT_SPARE_BITS_MASK
+ 
+ #define _swift_abi_ObjCReservedBitsMask                                        \
+   (__swift_uintptr_t) SWIFT_ABI_DEFAULT_OBJC_RESERVED_BITS_MASK
+diff --git a/stdlib/public/SwiftShims/swift/shims/System.h b/stdlib/public/SwiftShims/swift/shims/System.h
+index 328f81ebece..4d04aa5a23e 100644
+--- a/stdlib/public/SwiftShims/swift/shims/System.h
++++ b/stdlib/public/SwiftShims/swift/shims/System.h
+@@ -224,4 +224,13 @@
+ // reserve low 4KB.
+ #define SWIFT_ABI_WASM32_LEAST_VALID_POINTER 4096
+ 
++// libobjc-wasm: objects are at least 4-byte aligned; the low bit marks native
++// Swift weak references (no Objective-C tagged pointers exist on wasm32).
++#define SWIFT_ABI_WASM32_SWIFT_SPARE_BITS_MASK 0x00000003U
++#define SWIFT_ABI_WASM32_OBJC_WEAK_REFERENCE_MARKER_MASK  \
++  (SWIFT_ABI_DEFAULT_OBJC_RESERVED_BITS_MASK |            \
++   1<<SWIFT_ABI_DEFAULT_OBJC_NUM_RESERVED_LOW_BITS)
++#define SWIFT_ABI_WASM32_OBJC_WEAK_REFERENCE_MARKER_VALUE \
++  (1<<SWIFT_ABI_DEFAULT_OBJC_NUM_RESERVED_LOW_BITS)
++
+ #endif // SWIFT_STDLIB_SHIMS_ABI_SYSTEM_H
 diff --git a/stdlib/public/runtime/SwiftObject.mm b/stdlib/public/runtime/SwiftObject.mm
 index acee3dc8244..2e34c00a699 100644
 --- a/stdlib/public/runtime/SwiftObject.mm
@@ -102,6 +133,20 @@ index acee3dc8244..2e34c00a699 100644
  
  - (id /* NSString */)description {
    return _getObjectDescription(self);
+diff --git a/stdlib/public/runtime/WeakReference.h b/stdlib/public/runtime/WeakReference.h
+index 5e12072aa3e..8ade559e9fc 100644
+--- a/stdlib/public/runtime/WeakReference.h
++++ b/stdlib/public/runtime/WeakReference.h
+@@ -98,6 +98,9 @@ class WeakReferenceBits {
+ #elif defined(__arm64__) || defined(__aarch64__) || defined(_M_ARM64)
+     NativeMarkerMask  = SWIFT_ABI_ARM64_OBJC_WEAK_REFERENCE_MARKER_MASK,
+     NativeMarkerValue = SWIFT_ABI_ARM64_OBJC_WEAK_REFERENCE_MARKER_VALUE
++#elif defined(__wasm32__)
++    NativeMarkerMask  = SWIFT_ABI_WASM32_OBJC_WEAK_REFERENCE_MARKER_MASK,
++    NativeMarkerValue = SWIFT_ABI_WASM32_OBJC_WEAK_REFERENCE_MARKER_VALUE
+ #else
+     #error unknown architecture
+ #endif
 diff --git a/stdlib/public/stubs/FoundationHelpers.mm b/stdlib/public/stubs/FoundationHelpers.mm
 index 0443eddbfbb..73b738b019e 100644
 --- a/stdlib/public/stubs/FoundationHelpers.mm
