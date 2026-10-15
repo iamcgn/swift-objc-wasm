@@ -241,3 +241,24 @@ index ca5f5a8580e..046c5a9da45 100644
  
      def test(self, host_target):
          self._test(host_target, 'wasm32-wasip1')
+diff --git a/utils/swift_build_support/swift_build_support/products/wasmswiftsdk.py b/utils/swift_build_support/swift_build_support/products/wasmswiftsdk.py
+index fcd47af2450..efbd52af681 100644
+--- a/utils/swift_build_support/swift_build_support/products/wasmswiftsdk.py
++++ b/utils/swift_build_support/swift_build_support/products/wasmswiftsdk.py
+@@ -58,6 +58,16 @@ class WasmSwiftSDK(product.Product):
+                        swift_resource_dir] + extra_swift_flags
+         c_flags = ['-resource-dir', clang_resource_dir]
+         cxx_flags = c_flags + ['-fno-exceptions']
++        # libobjc-wasm: everything built against the interop stdlib must also
++        # compile with Objective-C interop on.
++        objc_runtime = os.environ.get('SWIFT_OBJC_WASM_RUNTIME')
++        if objc_runtime:
++            objc_include = os.path.join(objc_runtime, 'include')
++            swift_flags += ['-Xfrontend', '-enable-objc-interop',
++                            '-Xfrontend', '-disable-objc-attr-requires-foundation-module',
++                            '-I', objc_include, '-Xcc', '-I' + objc_include]
++            c_flags += ['-fobjc-runtime=ios-7.0', '-I' + objc_include]
++            cxx_flags += ['-fobjc-runtime=ios-7.0', '-I' + objc_include]
+         if has_pthread:
+             clang_flags = ['-mthread-model', 'posix', '-pthread']
+             c_flags.extend(clang_flags)
