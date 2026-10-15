@@ -17,3 +17,31 @@ Layout:
 - `tests/`     link-level experiments and end-to-end SwiftPM test packages
 
 The design plan lives in `PLAN.md`.
+
+## Status (2026-10-14)
+
+Working end to end on this machine: the interop SDK `swift-6.3.3-RELEASE_wasm-objc` builds and
+runs `tests/e2e/*` on WasmKit, and the unmodified SwiftUI-2048 app (swiftui-web's acceptance
+case: `@UIApplicationMain`, `@objc func newGame`, `#selector`, `UIKeyCommand`) runs in Chromium
+with ⌘N starting a new game.
+
+## Build
+
+```sh
+toolchain/checkout.sh                       # clone swiftlang/swift + companions at swift-6.3.3-RELEASE
+toolchain/apply-patches.py                  # compiler patches (clang + swift), idempotent
+toolchain/apply-stdlib-patches.py           # stdlib/runtime/build patches, idempotent
+toolchain/build-host-compiler.sh            # patched swift-frontend + clang (2–4 h, 16 GB OK)
+toolchain/stage-toolchain.sh                # a unified usr/bin + usr/lib for the SDK
+CLANG=$SWIFT_SOURCE/build/objc-wasm/llvm-macosx-arm64/bin/clang WITH_OBJC=1 runtime/build.sh
+CLANG=... WITH_OBJC=1 runtime/tests/run.sh  # runtime tests on WasmKit
+toolchain/build-wasm-stdlib.sh              # wasm stdlib + FoundationEssentials with interop
+sdk/assemble-artifactbundle.sh && swift sdk install build/swift-6.3.3-RELEASE_wasm-objc.artifactbundle
+tests/e2e/run.sh                            # Swift end-to-end tests on WasmKit
+```
+
+Known limits of v1: no `String`/`Array`/`Dictionary`/`Error` bridging to Foundation classes
+(`String as NSString` is a compile error), no Objective-C exceptions, no corelibs Foundation,
+XCTest or Testing in the SDK, single-threaded only. The toolset passes
+`-validate-tbd-against-ir=none` (TBDGen knows no Objective-C class symbols off Mach-O) and
+`-disable-objc-attr-requires-foundation-module`.
