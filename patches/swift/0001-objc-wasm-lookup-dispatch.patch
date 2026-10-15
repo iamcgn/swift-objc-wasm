@@ -157,3 +157,86 @@ index 54a0cdd84fc..2bbd0b00c69 100644
  }
  
  /// Configure a default target.
+diff --git a/lib/SILGen/SILGenFunction.cpp b/lib/SILGen/SILGenFunction.cpp
+index 338d5fdec35..4521766a8d3 100644
+--- a/lib/SILGen/SILGenFunction.cpp
++++ b/lib/SILGen/SILGenFunction.cpp
+@@ -1215,6 +1215,78 @@ void SILGenFunction::emitArtificialTopLevel(Decl *mainDecl) {
+ 
+     auto *mainClass = cast<NominalTypeDecl>(mainDecl);
+ 
++    // libobjc-wasm: without Foundation's NSString there is no C UIApplicationMain
++    // to call. Call a Swift one from the UIKit module instead:
++    //   UIApplicationMain(_: Int32, _: argv, _: String?, _: String?) -> Int32
++    // with the class name from the module's NSStringFromClass(_: AnyClass) -> String.
++    if (!SGM.Types.getNSStringType()) {
++      ASTContext &ctx = getASTContext();
++      ModuleDecl *UIKitSwift = ctx.getLoadedModule(ctx.getIdentifier("UIKit"));
++      assert(UIKitSwift && "couldn't find a UIKit module for @UIApplicationMain");
++      auto lookupFunc = [&](StringRef name, unsigned numParams) -> FuncDecl * {
++        SmallVector<ValueDecl *, 4> found;
++        UIKitSwift->lookupQualified(UIKitSwift,
++                                    DeclNameRef(ctx.getIdentifier(name)),
++                                    SourceLoc(), NL_QualifiedDefault, found);
++        for (auto *vd : found)
++          if (auto *fd = dyn_cast<FuncDecl>(vd))
++            if (fd->getClangNode().isNull() &&
++                fd->getParameters()->size() == numParams)
++              return fd;
++        return nullptr;
++      };
++      FuncDecl *mainFn = lookupFunc("UIApplicationMain", 4);
++      FuncDecl *nameFn = lookupFunc("NSStringFromClass", 1);
++      assert(mainFn && nameFn &&
++             "UIKit lacks a Swift UIApplicationMain or NSStringFromClass");
++
++      // NSStringFromClass(Self.self as AnyClass)
++      CanType mainClassTy =
++          mainClass->getDeclaredInterfaceType()->getCanonicalType();
++      CanType metaTy =
++          CanMetatypeType::get(mainClassTy, MetatypeRepresentation::Thick);
++      CanType anyClassTy = CanExistentialMetatypeType::get(
++          ctx.getAnyObjectType(), MetatypeRepresentation::Thick);
++      auto conformances = collectExistentialConformances(metaTy, anyClassTy);
++      SILValue meta = B.createMetatype(
++          mainClass, SILType::getPrimitiveObjectType(metaTy));
++      meta = B.createInitExistentialMetatype(
++          mainClass, meta, SILType::getPrimitiveObjectType(anyClassTy),
++          conformances);
++      ManagedValue metaArg[] = {
++          ManagedValue::forObjectRValueWithoutOwnership(meta)};
++      ManagedValue name =
++          std::move(emitApplyOfLibraryIntrinsic(mainClass, nameFn,
++                                                SubstitutionMap(), metaArg,
++                                                SGFContext()))
++              .getAsSingleValue(*this, mainClass);
++
++      CanType optStringTy =
++          OptionalType::get(ctx.getStringDecl()->getDeclaredInterfaceType())
++              ->getCanonicalType();
++      auto &optStringTL = getTypeLowering(optStringTy);
++      ManagedValue optName = getOptionalSomeValue(mainClass, name, optStringTL);
++      ManagedValue nilName = emitManagedRValueWithCleanup(
++          getOptionalNoneValue(mainClass, optStringTL));
++
++      ManagedValue mainArgs[] = {
++          ManagedValue::forObjectRValueWithoutOwnership(argc),
++          ManagedValue::forObjectRValueWithoutOwnership(argv), nilName,
++          optName};
++      (void)emitApplyOfLibraryIntrinsic(mainClass, mainFn, SubstitutionMap(),
++                                        mainArgs, SGFContext());
++
++      SILValue r = B.createIntegerLiteral(
++          mainClass, SILType::getBuiltinIntegerType(32, ctx), 0);
++      auto rType = F.getConventions().getSingleSILResultType(
++          B.getTypeExpansionContext());
++      if (r->getType() != rType)
++        r = B.createStruct(mainClass, rType, r);
++      Cleanups.emitCleanupsForReturn(mainClass, NotForUnwind);
++      B.createReturn(mainClass, r);
++      return;
++    }
++
+     CanType NSStringTy = SGM.Types.getNSStringType();
+     CanType OptNSStringTy
+       = OptionalType::get(NSStringTy)->getCanonicalType();
