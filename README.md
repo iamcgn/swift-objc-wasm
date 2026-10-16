@@ -96,8 +96,23 @@ toolchain/build-wasm-stdlib.sh              # wasm stdlib + FoundationEssentials
 sdk/assemble-artifactbundle.sh && swift sdk install build/swift-6.3.3-RELEASE_wasm-objc.artifactbundle
 ```
 
-`SWIFT_SOURCE` defaults to `~/Development/swift-source`. Releases carry the assembled bundle
-as a `.tar.gz` with a SHA-256 checksum, for `swift sdk install <url> --checksum <sha256>`.
+`SWIFT_SOURCE` defaults to `~/Development/swift-source`.
+
+## Install a release
+
+Needs the swiftly `6.3.3` toolchain on macOS arm64; the bundle brings its own patched
+compilers.
+
+```sh
+swift sdk install https://github.com/iamcgn/swift-objc-wasm/releases/download/v0.1.0/swift-6.3.3-RELEASE_wasm-objc.artifactbundle.tar.gz \
+  --checksum cc0a9533d197ce94e167b8fba7c276f86eefc2c06f3f54dd4a900a76d02c231a
+swift build --swift-sdk swift-6.3.3-RELEASE_wasm-objc
+```
+
+The bundle (665 MB compressed) was assembled from the `v0.1.0` sources; its `VERSION` file
+names the commit and the patch-series checksum. Installing from this URL with the checksum and
+running `tests/e2e/run.sh` against it was verified on 2026-10-15 (on the build machine; a second
+machine has not been tried).
 
 ## Verify
 
