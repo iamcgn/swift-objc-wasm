@@ -139,9 +139,9 @@ Exit: `swift build --swift-sdk swift-6.3.3-RELEASE_wasm-objc` of a Foundation-fr
 7. `withTransaction`/`withAnimation` isolation (sw-isolation-fidelity, `0021-real-apps.md:173-177`) is on the acceptance path: upstream's nonisolated `@objc func newGame` calls `withTransaction`. Make them nonisolated as Apple's are.
 8. Verify: `scripts/check-apps.sh` (upstream hashes intact) then `scripts/build-wasm.sh Apps --debug --product SwiftUI2048`; ⌘N starts a new game in the Playwright harness; existing wasm examples still build; macOS native builds unaffected.
 
-## Phase 6 — Upstream and maintenance (2–3 days + ongoing)
+## Phase 6 — Maintenance (ongoing)
 
-- File swiftlang issues/PRs: clang `GetSectionName` Wasm + lookup dispatch + `llvm.used` lists (upstream merged GNUstep-on-wasm in Aug 2026, so there is appetite); Swift `GenObjC.cpp` wasm dispatch + `SwiftTargetInfo`; the stdlib build/runtime hygiene patches (`-DSWIFT_OBJC_INTEROP=1` explicit, `SWIFT_CLASS_IS_SWIFT_MASK`, `performSelector` via lookup, dlsym-free `FoundationHelpers`); the non-Darwin `ObjectiveC` overlay (hardest to land; keep in-tree). Report the `-typecheck` abort as the first bug, as decision 0021 asks.
+- Decided 2026-10-16: no upstream filings. The patches stay in this repo as a series rebased per Swift release; nothing is submitted to swiftlang/swift or swiftlang/llvm-project, and the `-typecheck` abort is not reported.
 - Patches kept as `git format-patch` series against the release tag; `toolchain/rebase.sh` applies them to the next `swift-6.x-RELEASE` tag; GitHub Actions on a Linux host builds a Linux-host toolset for a second artifactbundle for the project's CI.
 
 ## Phase 7 — Release on GitHub: licensing, attribution, publishing (3–4 days)
@@ -163,7 +163,7 @@ one needs the user's decision.
 | `runtime/src/blocks/*`, `runtime/include/Block.h`, `runtime/include/Block/Block.h` | Byte-identical copies of `swift-corelibs-libdispatch/src/BlocksRuntime` (checkout `swift-6.3-DEVELOPMENT-SNAPSHOT-2026-06-07-a`) | Apache-2.0 with Runtime Library Exception, Apple headers intact | Compliant as is | Record origin and commit in THIRD_PARTY_NOTICES; never edit without a "modified" line |
 | `runtime/overlay/ObjectiveC.swift` | Port of `stdlib/public/Darwin/ObjectiveC/ObjectiveC.swift` at swift-5.2-RELEASE; 31 of 35 substantive lines verbatim | Apache-2.0 with Runtime Library Exception | **Apple's copyright/license header was dropped** | **Restore the Apple header** and add a "modified for libobjc-wasm" line; same for `runtime/overlay/CMakeLists.txt` (derived from the 5.2 CMakeLists) |
 | `runtime/docs/overlay/*-5.2.*` | Verbatim Apple files kept as reference | Apache-2.0 with RLE, headers intact | Compliant | Drop them and cite the tag instead (they are reproducible from git), or keep and list in THIRD_PARTY_NOTICES |
-| `patches/swift/*.patch`, `patches/llvm-project/*.patch`, `toolchain/apply-*.py` | Our hunks plus upstream context lines and embedded upstream snippets | swiftlang/swift: Apache-2.0 with RLE; swiftlang/llvm-project: Apache-2.0 WITH LLVM-exception | Derivative works of the upstream files | `patches/README.md`: base tags, upstream licenses, and that our hunks are offered under the upstream license of each tree (needed for Phase 6 upstreaming anyway) |
+| `patches/swift/*.patch`, `patches/llvm-project/*.patch`, `toolchain/apply-*.py` | Our hunks plus upstream context lines and embedded upstream snippets | swiftlang/swift: Apache-2.0 with RLE; swiftlang/llvm-project: Apache-2.0 WITH LLVM-exception | Derivative works of the upstream files | `patches/README.md`: base tags, upstream licenses, and that our hunks are offered under the upstream license of each tree |
 | `runtime/include/_stdlib_shims/*` | Written here; declare Apple API names (`CFBase` types, `TargetConditionals` macros) only | — | Original | Our license + header |
 | `tests/`, `sdk/`, `toolchain/*.sh`, `runtime/docs/abi.m`, `swiftmeta.swift`, `README.md`, `PLAN.md` | Written here | — | Original; `PLAN.md` carries one personal absolute path | Our license; make the path relative |
 | SDK artifactbundle (release asset, 2.3 GB uncompressed) | Redistributes: Swift toolchain binaries and stdlib (Apache-2.0 with RLE), clang/lld and compiler-rt builtins (Apache-2.0 WITH LLVM-exception), wasi-libc (Apache-2.0 WITH LLVM-exception / Apache-2.0 / MIT, at the user's choice), libc++ and libc++abi (Apache-2.0 WITH LLVM-exception), swift-foundation (Apache-2.0), swift-foundation-icu (Unicode-3.0 / ICU), swift-collections (Apache-2.0), swift-syntax macro plugins (Apache-2.0 with RLE), plus libobjc-wasm and the overlay | as listed | The stock swift.org bundle ships no license files; ours should | `LICENSE.txt` and `THIRD_PARTY_NOTICES.md` at the bundle root, with the license texts that require reproduction (Apache-2.0, LLVM exception, Unicode/ICU, MIT) |
@@ -178,19 +178,18 @@ No binaries or build outputs are in git history (largest blob 41 KB). No secrets
 8. **Reference copies under `runtime/docs/overlay/`: drop** (cite the tag).
 9. **Release form: source tag plus the artifactbundle as a release asset**, macOS arm64 host only for now (Phase 6's Linux-host toolset remains a CI follow-up). GitHub caps an asset at 2 GiB: the bundle must be compressed (`tar.gz`, as `swift sdk install` expects) and, if still over, host binaries stripped; measure before tagging (measured 2026-10-15 from commit 828cbce: 665 MB as `tar.gz`, so no stripping needed). Alternative: source only at first, consumers build with the scripts (2–4 h).
 
-### 7.3 Steps, in order (1–7 done 2026-10-15, commit 828cbce and the verification after it; 8 done 2026-10-15: public repo https://github.com/iamcgn/swift-objc-wasm, tag `v0.1.0` at 583edf0; 9 done 2026-10-15: release https://github.com/iamcgn/swift-objc-wasm/releases/tag/v0.1.0 with the 665 MB bundle and its checksum; 10–11 await the go-ahead)
+### 7.3 Steps, in order (1–7 done 2026-10-15, commit 828cbce and the verification after it; 8 done 2026-10-15: public repo https://github.com/iamcgn/swift-objc-wasm, tag `v0.1.0` at 583edf0; 9 done 2026-10-15: release https://github.com/iamcgn/swift-objc-wasm/releases/tag/v0.1.0 with the 665 MB bundle and its checksum; 10 awaits the go-ahead; 11 scratched 2026-10-16)
 
 1. **License files** at the repo root: `LICENSE.txt` (Apache-2.0 text + the Runtime Library Exception, verbatim from swift.org), `NOTICE.txt` (project name, copyright line, one paragraph on objc4 as the ABI/API reference with no objc4 code, the trademark line: Apple, Objective-C, Swift are Apple trademarks; not affiliated with or endorsed by Apple), `THIRD_PARTY_NOTICES.md` (every row above with URL, tag or commit, license, and the license texts).
 2. **Fix the two defects**: restore Apple's header on `runtime/overlay/ObjectiveC.swift` and `CMakeLists.txt` with a modification line; rewrite the 16 objc4 doc comments (`objc.h`, `runtime.h`, `message.h`). Rerun the verbatim-line scan afterwards (a local script that shallow-clones objc4 into a scratch dir for comparison only; objc4 is never vendored and the script is not committed).
 3. **File headers**: 67 of 74 original source files have none. Add a two-line header (`// swift-objc-wasm` / `// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception`) to every original `.c/.h/.m/.swift/.py/.sh/.cmake/CMakeLists.txt`; leave the BlocksRuntime copies untouched.
-4. **`patches/README.md`**: base tags (`swift-6.3.3-RELEASE` of both trees), what each patch does, upstream license per tree, and that the hunks are offered under those licenses (Swift and LLVM accept contributions under their own license without a CLA, which Phase 6 relies on).
+4. **`patches/README.md`**: base tags (`swift-6.3.3-RELEASE` of both trees), what each patch does, upstream license per tree, and that the hunks are offered under those licenses.
 5. **Scrub**: `PLAN.md` path to relative; `git grep` for `/Users/`, emails, tokens (clean today); decide whether the `Claude-Session` commit trailers may go public (they are private links; harmless, but the history is rewritten now or never).
 6. **README for strangers**: prerequisites (macOS arm64, Xcode CLT with the macOS 26 SDK, swiftly 6.3.3, ninja, 16 GB, ~60 GB disk), build time, the exact checkout tag, the status table and limits, how to verify (`runtime/tests/run.sh`, `tests/e2e/run.sh`, `tests/compiler-checks.sh`), where to report problems, link to swiftui-web's decision 0023 for the consumer side.
 7. **Clean-commit verification** on the commit to be tagged: runtime tests, e2e, compiler checks, and the swiftui-web hash/probe chain against a bundle assembled from that commit. Record the outcomes in README as done for the acceptance rerun.
 8. **Publish the source**: `gh repo create iamcgn/swift-objc-wasm --public` with description and topics (swift, objective-c, webassembly, wasi, objc-runtime), push `main`, tag `v0.1.0`. Enable issues; no CI yet.
 9. **Publish the SDK asset**: assemble the bundle from the tagged commit, add `LICENSE.txt` + `THIRD_PARTY_NOTICES.md` + a `VERSION` file (tag, commit, patch-series sha256) at the bundle root, `tar.gz`, `shasum -a 256`, `gh release create v0.1.0` with notes (what works, limits, host requirements). README gets `swift sdk install <asset url> --checksum <sha256>`.
 10. **Consumer side (swiftui-web)**: after the asset exists, decision 0023 drops "the SDK is local"; add the CI step pinned to the release URL and checksum; merge `objc-runtime-wasm` by PR. These are the steps the acceptance phase deliberately left undone and need the user's go-ahead at that point.
-11. **Phase 6 upstream filings** reference the public repo and tag.
 
 ### 7.4 Done when
 
@@ -217,7 +216,7 @@ No binaries or build outputs are in git history (largest blob 41 KB). No secrets
 
 ## Effort
 
-Phase 0: 2–3 days · Phase 1: 4 · Phase 2: 10–15 · Phase 3: 5–8 · Phase 4: 3 · Phase 5: 4–6 · Phase 6: 2–3 + ongoing · Phase 7: 3–4. Total ≈ 33–46 engineer-days; Phases 1 and 2 overlap once the clang patch lands.
+Phase 0: 2–3 days · Phase 1: 4 · Phase 2: 10–15 · Phase 3: 5–8 · Phase 4: 3 · Phase 5: 4–6 · Phase 6: ongoing · Phase 7: 3–4. Total ≈ 33–46 engineer-days; Phases 1 and 2 overlap once the clang patch lands.
 
 ## Open decisions (defaults assumed unless changed; 5–9 are in Phase 7.2)
 
