@@ -20,7 +20,7 @@ original work that reproduces the metadata layouts, type names, declarations and
 Apple's [objc4](https://github.com/apple-oss-distributions/objc4) public API, so that code
 compiled for that runtime links and runs on WebAssembly. No objc4 implementation code or
 documentation text is used; objc4 is under the Apple Public Source License 2.0 and is not
-redistributed here. `tests/provenance-check.sh` verifies the absence of verbatim objc4 text.
+redistributed here. A line-by-line comparison against objc4 (run before release, not shipped here) found no verbatim objc4 comment or implementation text.
 
 ## Components redistributed in the SDK artifactbundle
 

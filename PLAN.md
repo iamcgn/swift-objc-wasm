@@ -181,7 +181,7 @@ No binaries or build outputs are in git history (largest blob 41 KB). No secrets
 ### 7.3 Steps, in order (1–7 done 2026-10-15, commit 9b74613 and the verification after it; 8–11 await the go-ahead)
 
 1. **License files** at the repo root: `LICENSE.txt` (Apache-2.0 text + the Runtime Library Exception, verbatim from swift.org), `NOTICE.txt` (project name, copyright line, one paragraph on objc4 as the ABI/API reference with no objc4 code, the trademark line: Apple, Objective-C, Swift are Apple trademarks; not affiliated with or endorsed by Apple), `THIRD_PARTY_NOTICES.md` (every row above with URL, tag or commit, license, and the license texts).
-2. **Fix the two defects**: restore Apple's header on `runtime/overlay/ObjectiveC.swift` and `CMakeLists.txt` with a modification line; rewrite the 16 objc4 doc comments (`objc.h`, `runtime.h`, `message.h`). Rerun the verbatim-line scan afterwards and keep it as `tests/provenance-check.sh` (clones objc4 shallow into a scratch dir for comparison only; objc4 is never vendored).
+2. **Fix the two defects**: restore Apple's header on `runtime/overlay/ObjectiveC.swift` and `CMakeLists.txt` with a modification line; rewrite the 16 objc4 doc comments (`objc.h`, `runtime.h`, `message.h`). Rerun the verbatim-line scan afterwards (a local script that shallow-clones objc4 into a scratch dir for comparison only; objc4 is never vendored and the script is not committed).
 3. **File headers**: 67 of 74 original source files have none. Add a two-line header (`// swift-objc-wasm` / `// SPDX-License-Identifier: Apache-2.0 WITH Swift-exception`) to every original `.c/.h/.m/.swift/.py/.sh/.cmake/CMakeLists.txt`; leave the BlocksRuntime copies untouched.
 4. **`patches/README.md`**: base tags (`swift-6.3.3-RELEASE` of both trees), what each patch does, upstream license per tree, and that the hunks are offered under those licenses (Swift and LLVM accept contributions under their own license without a CLA, which Phase 6 relies on).
 5. **Scrub**: `PLAN.md` path to relative; `git grep` for `/Users/`, emails, tokens (clean today); decide whether the `Claude-Session` commit trailers may go public (they are private links; harmless, but the history is rewritten now or never).
@@ -194,7 +194,7 @@ No binaries or build outputs are in git history (largest blob 41 KB). No secrets
 
 ### 7.4 Done when
 
-- `LICENSE.txt`, `NOTICE.txt`, `THIRD_PARTY_NOTICES.md` exist; every original file carries the SPDX header; every third-party file carries its original header; the provenance scan reports 0 verbatim objc4 comment lines.
+- `LICENSE.txt`, `NOTICE.txt`, `THIRD_PARTY_NOTICES.md` exist; every original file carries the SPDX header; every third-party file carries its original header; the local provenance scan reports 0 verbatim objc4 comment lines.
 - The public repo and `v0.1.0` tag exist, the release asset installs with `swift sdk install … --checksum` on a second machine, and `tests/e2e/run.sh` passes against it.
 - README states what was verified on the tagged commit.
 
