@@ -3,3 +3,5 @@ build/
 *.o
 *.wasm
 *.ll
+# Local-only scripts (pre-release scans, personal helpers); never committed.
+/local/
