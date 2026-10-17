@@ -50,6 +50,7 @@ Verified on the same date, with the commands under Verify below:
 | `tests/compiler-checks.sh`: patched compilers emit the same IR as the stock toolchain with interop off (`llvm-diff`, `-O` and `-Onone`) | identical |
 | `tests/compiler-checks.sh`: Darwin `swift/test/IRGen/objc_*` lit with the patched frontend | 60 passed, 1 expected failure, 25 unsupported on macOS arm64 |
 | Line-by-line comparison of the runtime sources and headers against objc4 (local scan, not in the repo) | 0 verbatim objc4 comment lines |
+| `tests/bundle-portability.sh` (added for v0.1.1: the v0.1.0 asset's `swiftc` loaded dylibs by absolute paths into the build machine, and the LLVM tools loaded Homebrew's zstd) | pass |
 | swiftui-web (branch `objc-runtime-wasm` at fbb333cf): SwiftUI-2048 bundle built with the SDK assembled from commit 828cbce, the four upstream pins verified unchanged, `Playwright/2048-probe.mjs` three consecutive runs | bundle and pins OK; 3/3 `full_app_pass` (launch, swipes, ⌘N) |
 
 The bundle's `ObjectiveC` overlay binary was compiled before the overlay source gained its restored license header (a comment-only change); the next stdlib build picks it up. The shipped `libswiftCore.a` defines `OBJC_CLASS_$__TtCs12_SwiftObject` and its metaclass.
@@ -121,6 +122,7 @@ CLANG=... runtime/tests/run.sh              # runtime tests on WasmKit (C)
 CLANG=... WITH_OBJC=1 runtime/tests/run.sh  # and Objective-C
 tests/e2e/run.sh                            # Swift end-to-end packages on WasmKit
 tests/compiler-checks.sh                    # baseline IR vs stock toolchain + Darwin IRGen objc_* lit
+tests/bundle-portability.sh                 # the assembled bundle loads nothing from outside itself or macOS
 ```
 
 `tests/e2e/run.sh` expects WasmKit from the swiftly toolchain (`WASMKIT=` to override).

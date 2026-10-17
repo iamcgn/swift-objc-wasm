@@ -61,7 +61,8 @@ cp "$OBJC_INSTALL/lib/libobjc.a" "$T/WASI.sdk/lib/wasm32-wasip1/"
 cp -R "$STAGED/bin" "$T/swift.xctoolchain/usr/"
 cp -R "$STAGED/lib/swift/host" "$T/swift.xctoolchain/usr/lib/swift/"
 cp -R "$STAGED/lib/clang" "$T/swift.xctoolchain/usr/lib/"
-ln -sfn "$(readlink "$STAGED/lib/swift/macosx")" "$T/swift.xctoolchain/usr/lib/swift/macosx"
+cp -R "$STAGED/lib/swift/macosx" "$T/swift.xctoolchain/usr/lib/swift/"   # the stock driver's dylibs
+[[ -f "$STAGED/lib/libzstd.1.dylib" ]] && cp "$STAGED/lib/libzstd.1.dylib" "$T/swift.xctoolchain/usr/lib/"
 
 # Bundle metadata.
 cat > "$OUT/info.json" <<JSON

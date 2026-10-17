@@ -32,6 +32,8 @@ redistributed here. A line-by-line comparison against objc4 (run before release,
 | FoundationEssentials, FoundationInternationalization, _FoundationCShims, _FoundationCollections | [swift-foundation](https://github.com/swiftlang/swift-foundation), [swift-collections](https://github.com/apple/swift-collections) | Apache License 2.0 with Runtime Library Exception |
 | _FoundationICU | [swift-foundation-icu](https://github.com/swiftlang/swift-foundation-icu), which packages ICU | Apache License 2.0 with Runtime Library Exception; the ICU sources and data are © 2016 and later Unicode, Inc. and others, under the Unicode License (https://www.unicode.org/copyright.html; text below) |
 | libobjc-wasm (`libobjc.a`, `objc/` and `Block/` headers) and the ObjectiveC overlay | this repository | Apache License 2.0 with Runtime Library Exception |
+| The stock `swiftc`/`swift-driver` and `swift-help` with the dylibs they load (`usr/lib/swift/macosx`: SwiftDriver, SwiftOptions, TSCBasic, TSCUtility, llbuildSwift, ArgumentParser), copied from swift.org's `swift-6.3.3-RELEASE` macOS toolchain | [swift-driver](https://github.com/swiftlang/swift-driver), [swift-tools-support-core](https://github.com/swiftlang/swift-tools-support-core), [swift-llbuild](https://github.com/swiftlang/swift-llbuild), [swift-argument-parser](https://github.com/apple/swift-argument-parser) | Apache License 2.0 with Runtime Library Exception (swift-driver, TSC, llbuild); Apache License 2.0 (swift-argument-parser) |
+| `usr/lib/libzstd.1.dylib` (Zstandard 1.5.7, loaded by the patched clang, lld, llvm tools and swift-frontend) | [facebook/zstd](https://github.com/facebook/zstd), the Homebrew build on the assembling machine | BSD 3-Clause License (below) |
 
 ## License texts
 
@@ -77,6 +79,41 @@ The Apache License 2.0 text is in `LICENSE.txt`. The LLVM Exceptions read:
 > FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 > OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 > DEALINGS IN THE SOFTWARE.
+
+### BSD 3-Clause License (Zstandard)
+
+```
+BSD License
+
+For Zstandard software
+
+Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+ * Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+ * Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+ * Neither the name Facebook, nor Meta, nor the names of its contributors may
+   be used to endorse or promote products derived from this software without
+   specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
 
 ### Unicode License (ICU)
 
