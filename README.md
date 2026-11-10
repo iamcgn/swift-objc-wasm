@@ -106,7 +106,7 @@ compilers.
 
 ```sh
 swift sdk install https://github.com/iamcgn/swift-objc-wasm/releases/download/v0.1.2/swift-6.3.3-RELEASE_wasm-objc.artifactbundle.tar.gz \
-  --checksum d493aecef947d8a8a4d224264ace14d28a423677d949bcd756838c3080638328
+  --checksum f7b96a505c68446aa25a308ecf8c58f1a5a11bfdeff4217e533316fecf3210ab
 swift build --swift-sdk swift-6.3.3-RELEASE_wasm-objc
 ```
 
