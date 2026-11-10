@@ -105,14 +105,16 @@ Needs the swiftly `6.3.3` toolchain on macOS arm64; the bundle brings its own pa
 compilers.
 
 ```sh
-swift sdk install https://github.com/iamcgn/swift-objc-wasm/releases/download/v0.1.1/swift-6.3.3-RELEASE_wasm-objc.artifactbundle.tar.gz \
+swift sdk install https://github.com/iamcgn/swift-objc-wasm/releases/download/v0.1.2/swift-6.3.3-RELEASE_wasm-objc.artifactbundle.tar.gz \
   --checksum d493aecef947d8a8a4d224264ace14d28a423677d949bcd756838c3080638328
 swift build --swift-sdk swift-6.3.3-RELEASE_wasm-objc
 ```
 
 The bundle (659 MB compressed) was assembled from the `v0.1.1` sources; its `VERSION` file
 names the commit and the patch-series checksum. Each release's notes carry the asset's checksum.
-v0.1.0's asset ran only on the machine that built it (see its release notes); v0.1.1 is the first
+v0.1.2 is v0.1.1's bundle with `include/objc/ObjectiveC.apinotes` added (Swift sees the runtime's
+NSObject `description` as `__description`; see the file), so its compilers and runtime are
+v0.1.1's. v0.1.0's asset ran only on the machine that built it (see its release notes); v0.1.1 is the first
 one checked with `tests/bundle-portability.sh`, and swiftui-web's CI installs it on a GitHub
 macOS runner.
 

@@ -1,0 +1,29 @@
+---
+# swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
+# SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
+#
+# NSObject's description and debugDescription are declared with Foundation's NSString. A module
+# that loads a module named Foundation (swiftui-web's Foundation shadow) imports them as String,
+# beside the String description that swiftui-web's WebFoundation gives every NSObject (it needs
+# one where no Foundation is loaded), so `override var description` matched two and reading it
+# was ambiguous. Swift sees the runtime's as __description and __debugDescription; the
+# Objective-C selectors are unchanged.
+Name: ObjectiveC
+Protocols:
+- Name: NSObject
+  Properties:
+  - Name: description
+    PropertyKind: Instance
+    SwiftPrivate: true
+  - Name: debugDescription
+    PropertyKind: Instance
+    SwiftPrivate: true
+Classes:
+- Name: NSObject
+  Methods:
+  - Selector: description
+    MethodKind: Class
+    SwiftPrivate: true
+  - Selector: debugDescription
+    MethodKind: Class
+    SwiftPrivate: true
