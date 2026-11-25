@@ -70,8 +70,11 @@ CMake) before this project's `-enable-objc-interop`; the last one wins.
 - `NSObject.description` overrides from Swift need `NSString`, which the Foundation-lite
   only provides for literals and `UTF8String`.
 - Host toolset for macOS arm64 only. The toolset passes `-validate-tbd-against-ir=none`
-  (TBDGen knows no Objective-C class symbols off Mach-O) and
-  `-disable-objc-attr-requires-foundation-module`.
+  (TBDGen knows no Objective-C class symbols off Mach-O),
+  `-disable-objc-attr-requires-foundation-module`, and `-Xllvm
+  -type-lowering-disable-verification`: the compiler is built with assertions, and Swift
+  6.3.3's check of type lowerings in SILGen, which release compilers never run, aborts on some
+  app code (`verifyLexicalLowering`). The flag skips only that check.
 
 ## Requirements to build
 
