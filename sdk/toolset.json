@@ -10,7 +10,9 @@
       "-Xfrontend",
       "-validate-tbd-against-ir=none",
       "-Xfrontend",
-      "-disable-objc-attr-requires-foundation-module"
+      "-disable-objc-attr-requires-foundation-module",
+      "-Xllvm",
+      "-type-lowering-disable-verification"
     ]
   },
   "cCompiler": {
