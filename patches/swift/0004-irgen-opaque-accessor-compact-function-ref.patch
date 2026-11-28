@@ -1,0 +1,35 @@
+From 340dcf46c1ae39481f4f1603202ffa695db13958 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 28 Nov 2026 17:19:09 +0000
+Subject: [PATCH] IRGen: opaque type accessor references are compact function
+ references
+
+An opaque result type with `if #available` branches gets an accessor function,
+referenced from a mangled name by symbolic reference kind 9. IRGen wrote that
+reference with addRelativeAddress, which asserts on targets with compact
+absolute function pointers (WebAssembly) and, without assertions, stores a
+relative offset to a function index. The runtime already resolves kind 9 as
+a TargetCompactFunctionPointer, so emit it with addCompactFunctionReference.
+---
+ lib/IRGen/GenMeta.cpp | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/lib/IRGen/GenMeta.cpp b/lib/IRGen/GenMeta.cpp
+index 7467f91c..36ac405f 100644
+--- a/lib/IRGen/GenMeta.cpp
++++ b/lib/IRGen/GenMeta.cpp
+@@ -2796,7 +2796,10 @@ namespace {
+               S.setPacked(true);
+               S.add(llvm::ConstantInt::get(IGM.Int8Ty, 255));
+               S.add(llvm::ConstantInt::get(IGM.Int8Ty, 9));
+-              S.addRelativeAddress(accessor);
++              // libobjc-wasm: a function reference, which WebAssembly stores as
++              // an absolute table index (the runtime reads this symbolic
++              // reference kind as a compact function pointer).
++              S.addCompactFunctionReference(accessor);
+ 
+               // And a null terminator!
+               S.addInt(IGM.Int8Ty, 0);
+-- 
+2.43.0
+
