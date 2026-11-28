@@ -364,4 +364,15 @@ patch("swift/lib/IRGen/GenMeta.cpp", [("""              S.add(llvm::ConstantInt:
               // an absolute table index (the runtime reads this symbolic
               // reference kind as a compact function pointer).
               S.addCompactFunctionReference(accessor);""", "libobjc-wasm: a function reference, which WebAssembly stores as")])
+patch("swift/lib/Sema/CSSimplify.cpp", [("""  // FIXME: The "hasClangNode" check here is a complete hack.
+  if (isNonFinalClass(instanceType) && !isStaticallyDerived &&
+      !init->hasClangNode() &&""", """  // FIXME: The "hasClangNode" check here is a complete hack.
+  // libobjc-wasm: an `@objc dynamic` initializer is sent as a message, as an
+  // imported Objective-C one is, so it reaches a subclass's override through
+  // any metatype; on wasm, where UIKit is Swift, accept it the same way.
+  bool objcDispatchedInit =
+      cs.getASTContext().LangOpts.Target.isOSBinFormatWasm() &&
+      init->isObjC() && init->shouldUseObjCDispatch();
+  if (isNonFinalClass(instanceType) && !isStaticallyDerived &&
+      !init->hasClangNode() && !objcDispatchedInit &&""", "libobjc-wasm: an `@objc dynamic` initializer is sent as a message")])
 print("done")
