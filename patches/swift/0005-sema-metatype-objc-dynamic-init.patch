@@ -1,0 +1,57 @@
+From bf77ca409d9d7a0f14394cad0b0259784de1888e Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 28 Nov 2026 17:27:26 +0000
+Subject: [PATCH] Sema: on wasm, a metatype may construct with an @objc dynamic
+ initializer
+
+Constructing an object of a non-final class from a metatype value needs a
+'required' initializer, except an imported Objective-C one, which is sent as a
+message and so reaches the dynamic class's override. An @objc dynamic
+initializer is sent the same way (SILGen's allocator allocates from the
+metatype and emitSiblingMethodRef dispatches it by message). On wasm, where
+UIKit is a Swift module, accept those too, as Apple's SDK accepts UIView()
+from a UIView-constrained generic.
+---
+ lib/IRGen/GenMeta.cpp   | 5 +----
+ lib/Sema/CSSimplify.cpp | 8 +++++++-
+ 2 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/lib/IRGen/GenMeta.cpp b/lib/IRGen/GenMeta.cpp
+index 36ac405f..7467f91c 100644
+--- a/lib/IRGen/GenMeta.cpp
++++ b/lib/IRGen/GenMeta.cpp
+@@ -2796,10 +2796,7 @@ namespace {
+               S.setPacked(true);
+               S.add(llvm::ConstantInt::get(IGM.Int8Ty, 255));
+               S.add(llvm::ConstantInt::get(IGM.Int8Ty, 9));
+-              // libobjc-wasm: a function reference, which WebAssembly stores as
+-              // an absolute table index (the runtime reads this symbolic
+-              // reference kind as a compact function pointer).
+-              S.addCompactFunctionReference(accessor);
++              S.addRelativeAddress(accessor);
+ 
+               // And a null terminator!
+               S.addInt(IGM.Int8Ty, 0);
+diff --git a/lib/Sema/CSSimplify.cpp b/lib/Sema/CSSimplify.cpp
+index decdc372..b6eafe0d 100644
+--- a/lib/Sema/CSSimplify.cpp
++++ b/lib/Sema/CSSimplify.cpp
+@@ -11161,8 +11161,14 @@ static ConstraintFix *validateInitializerRef(ConstraintSystem &cs,
+ 
+   auto baseRange = baseExpr ? baseExpr->getSourceRange() : SourceRange();
+   // FIXME: The "hasClangNode" check here is a complete hack.
++  // libobjc-wasm: an `@objc dynamic` initializer is sent as a message, as an
++  // imported Objective-C one is, so it reaches a subclass's override through
++  // any metatype; on wasm, where UIKit is Swift, accept it the same way.
++  bool objcDispatchedInit =
++      cs.getASTContext().LangOpts.Target.isOSBinFormatWasm() &&
++      init->isObjC() && init->shouldUseObjCDispatch();
+   if (isNonFinalClass(instanceType) && !isStaticallyDerived &&
+-      !init->hasClangNode() &&
++      !init->hasClangNode() && !objcDispatchedInit &&
+       !(init->isRequired() || init->getDeclContext()->getSelfProtocolDecl())) {
+     return AllowInvalidInitRef::dynamicOnMetatype(cs, baseType, init, baseRange,
+                                                   locator);
+-- 
+2.43.0
+
