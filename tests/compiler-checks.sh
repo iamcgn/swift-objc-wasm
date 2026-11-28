@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # swift-objc-wasm — Copyright 2026 Corey Earwood and the swift-objc-wasm contributors
 # SPDX-License-Identifier: Apache-2.0 WITH Swift-exception
-# The two compiler-level checks from PLAN.md Phases 0 and 1, run against the patched host build:
+# The compiler-level checks from PLAN.md Phases 0 and 1, run against the patched host build:
 #  1. baseline: with interop off (the default on wasm) the patched swift-frontend and clang emit
 #     the same IR as the stock swift-6.3.3-RELEASE toolchain for a wasm32 input (llvm-diff);
-#  2. lit: swift/test/IRGen/objc_*.swift for Darwin (macOS arm64) pass with the patched frontend.
+#  2. lit: swift/test/IRGen/objc_*.swift for Darwin (macOS arm64) pass with the patched frontend;
+#  3. an opaque result type with `if #available` branches compiles for wasm32 (patch swift/0004).
 # The host build has no macOS stdlib (--build-swift-*-stdlib=0), so lit borrows the stock
 # toolchain's resource dir; the build's lit.site.cfg names Xcode's macOS 27 SDK, whose Foundation
 # interface the 6.3.3 compiler cannot read (`-target-arch-variant`), so a copy pointing at the
@@ -68,5 +69,18 @@ for pair in "10.11 CHECK-NEW" "10.10 CHECK-OLD"; do
   if "$PATCHED_FE" -frontend -target "arm64-apple-macosx$ver" -resource-dir "$STOCK/lib/swift" "$T" -disable-target-os-checking -emit-ir -disable-objc-attr-requires-foundation-module -module-name objc_properties 2>/dev/null \
      | "$FILECHECK" -check-prefix=CHECK -check-prefix="$prefix" "$T"; then echo "PASS objc_properties.swift (by hand, macosx$ver $prefix)"; else echo "FAIL objc_properties.swift macosx$ver"; status=1; fi
 done
+echo "== 3. opaque result type with #available branches (wasm32)"
+# Its underlying type comes from an accessor function that a mangled name refers to by symbolic
+# reference kind 9; wasm stores that as an absolute table index (patch swift/0004).
+cat > "$WORK/opaque.swift" <<'SWIFT'
+public protocol P {}
+struct A: P {}
+struct B: P {}
+public func pick() -> some P { if #available(macOS 99, *) { return A() } else { return B() } }
+SWIFT
+if "$PATCHED_FE" -frontend -emit-ir -target wasm32-unknown-wasip1 -resource-dir "$RES" -sdk "$SYSROOT" -module-name opaque "$WORK/opaque.swift" -o "$WORK/opaque.ll" \
+   && grep -qE 'i8 -1, i8 9, i32 ptrtoint \(ptr @' "$WORK/opaque.ll"; then
+  echo "PASS opaque accessor is a compact function reference"
+else echo "FAIL opaque accessor (see $WORK/opaque.ll)"; status=1; fi
 echo "work dir: $WORK"
 exit $status

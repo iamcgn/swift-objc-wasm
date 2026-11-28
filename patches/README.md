@@ -10,6 +10,7 @@ same changes idempotently to a checkout made by `toolchain/checkout.sh`.
 | `swift/0001-objc-wasm-lookup-dispatch.patch` | [swiftlang/swift](https://github.com/swiftlang/swift) | IRGen: `objc_msgLookup`/`objc_msgLookupSuper2` dispatch on wasm, no stret, dynamic-method branches; SILGen: Swift `UIApplicationMain` entry |
 | `swift/0002-stdlib-objc-interop-on-wasi.patch` | swiftlang/swift | Build interop into the WASI stdlib: flags, the ObjectiveC overlay, `performSelector` via typed lookup, dlsym-free `FoundationHelpers`, wasm32 weak-reference marker and spare bits |
 | `swift/0003-build-script-macos-sysroot-override.patch` | swiftlang/swift | Host build against a chosen macOS SDK (`SWIFT_BUILD_MACOS_SYSROOT`) |
+| `swift/0004-irgen-opaque-accessor-compact-function-ref.patch` | swiftlang/swift | IRGen: the accessor of an opaque result type with `if #available` branches is referenced as a compact function pointer, as the runtime reads it (the stock code asserts on wasm and, without assertions, stores a relative offset to a function) |
 
 ## Licensing
 
